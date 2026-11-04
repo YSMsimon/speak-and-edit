@@ -29,7 +29,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
-          toast: `${glassVariantStyles.frosted} neon neon-soft !rounded-2xl !border-transparent !bg-black/70 !text-foreground !shadow-xl`,
+          toast: `${glassVariantStyles.frosted} !rounded-2xl !bg-white/70 dark:!bg-black/60 !text-foreground !shadow-xl`,
           description: "!text-muted-foreground",
         },
       }}

@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ChevronDownIcon,
+  AnchorIcon,
   CrosshairIcon,
   ExternalLinkIcon,
+  MessageSquareQuoteIcon,
   PlusIcon,
   RefreshCwIcon,
   ScrollTextIcon,
   ShieldCheckIcon,
-  SlidersHorizontalIcon,
-  UsersRoundIcon,
   XIcon,
 } from "lucide-react";
 
@@ -18,16 +17,17 @@ import { fileUrl, KIND_LABEL, parseGoogleUrl, TAB_PATTERNS, titleFromTab, type F
 import { getGoogleToken, hasGoogleClient, signOutGoogle } from "@/lib/google";
 import { captureFile, focusFile, transcriptFile, type Settings } from "@/lib/settings";
 import { AlertDescription, AlertTitle } from "@/components/glasscn/ui/alert";
-import { ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/glasscn/ui/item";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/glasscn/ui/item";
 import { RadioGroup } from "@/components/glasscn/ui/radio-group";
 import { SelectItem, SelectValue } from "@/components/glasscn/ui/select";
 import { GlassAlert } from "@/components/glasscn/ui/glasscn/glass-alert";
 import { GlassBadge } from "@/components/glasscn/ui/glasscn/glass-badge";
 import { GlassButton } from "@/components/glasscn/ui/glasscn/glass-button";
+import { GlassCard } from "@/components/glasscn/ui/glasscn/glass-card";
 import { GlassInput } from "@/components/glasscn/ui/glasscn/glass-input";
 import { GlassItem } from "@/components/glasscn/ui/glasscn/glass-item";
 import { GlassSelect, GlassSelectContent, GlassSelectTrigger } from "@/components/glasscn/ui/glasscn/glass-select";
+import { GlassSeparator } from "@/components/glasscn/ui/glasscn/glass-separator";
 import { LiquidSwitch } from "@/components/glasscn/ui/glasscn/liquid-switch";
 
 import { FILE_LOGO, Logo } from "./logos";
@@ -36,24 +36,11 @@ import { toast } from "sonner";
 import { ObsidianSection } from "./ObsidianSection";
 import { OverleafSection } from "./OverleafSection";
 import { ProblemCard } from "./problem";
-import { ADD_BUTTON, ChoiceRow, Hint, ROW, SectionLabel, TILE } from "./shared";
+import { ChoiceRow, Hint, SectionLabel } from "./shared";
 
+/** The square tile every logo and icon sits in, so rows line up. */
 function Tile({ children }: { children: React.ReactNode }) {
-  return (
-    <ItemMedia className={cn(TILE, "size-10 rounded-xl border-white/[0.07] bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] [&_svg:not([class*='size-'])]:size-6")}>
-      {children}
-    </ItemMedia>
-  );
-}
-
-/** Round glass icon button for a row (open, remove). */
-const ROUND = "size-8 shrink-0 rounded-full border border-white/[0.14] bg-white/[0.055] text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:bg-white/[0.12] [&_svg]:size-4";
-
-function fileTint(kind: FileKind) {
-  if (kind === "doc") return "neon-teal";
-  if (kind === "note") return "neon-violet";
-  if (FILE_LOGO[kind] === "slides") return "neon-amber";
-  return "neon-green";
+  return <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10 [&_svg:not([class*='size-'])]:size-4">{children}</ItemMedia>;
 }
 
 interface OpenTab {
@@ -162,14 +149,14 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
 
   /** A compact row: logo or icon, a title, at most one short line, and a control. */
   const pickRow = (icon: React.ReactNode, title: string, line: string, control: React.ReactNode, after?: React.ReactNode) => (
-    <GlassItem className={cn(ROW, "gap-x-3 gap-y-2.5 border-white/[0.08] bg-white/[0.035] p-3")} glassVariant="subtle" size="sm">
+    <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
       <Tile>{icon}</Tile>
-      <ItemContent className="min-w-0 gap-0.5">
-        <ItemTitle className="text-[13px] font-medium text-slate-100">{title}</ItemTitle>
-        <ItemDescription className="truncate text-xs text-slate-400">{line}</ItemDescription>
+      <ItemContent className="min-w-0">
+        <ItemTitle>{title}</ItemTitle>
+        <ItemDescription className="truncate">{line}</ItemDescription>
       </ItemContent>
       {(control || after) && (
-        <div className="min-w-0 basis-full">
+        <div className="basis-full pl-11">
           {control}
           {after}
         </div>
@@ -181,25 +168,14 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
     const current = files.find((f) => f.id === value);
     return (
       <GlassSelect items={[...(extra ? [extra] : []), ...files.map((f) => ({ value: f.id, label: fileName(f) }))]} onValueChange={(v) => v && onChange(String(v))} value={value}>
-        <GlassSelectTrigger
-          aria-label={label}
-          className="neon min-h-14 w-full gap-3 rounded-2xl border-0 bg-[linear-gradient(115deg,rgba(99,102,241,0.13),rgba(13,148,136,0.07)_55%,rgba(255,255,255,0.06))] px-3 py-2.5 text-[13px] text-slate-100 [&>svg]:size-4 [&>svg]:text-slate-300"
-          size="sm"
-        >
-          {current && (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.035]">
-              <Logo className="size-6" name={FILE_LOGO[current.kind]} />
-            </span>
-          )}
-          <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 overflow-hidden text-left [&>span]:max-w-full [&>span]:truncate">
-            <SelectValue />
-            {current && <span className="text-xs font-normal text-slate-400">{KIND_LABEL[current.kind]}</span>}
-          </span>
+        <GlassSelectTrigger aria-label={label} size="sm">
+          {current && <Logo className="size-4" name={FILE_LOGO[current.kind]} />}
+          <SelectValue />
         </GlassSelectTrigger>
-        <GlassSelectContent className="rounded-2xl border-white/10 bg-[#14141f] p-1.5 text-[13px] text-slate-100 shadow-xl">
-          {extra && <SelectItem className="rounded-lg" value={extra.value}>{extra.label}</SelectItem>}
+        <GlassSelectContent>
+          {extra && <SelectItem value={extra.value}>{extra.label}</SelectItem>}
           {files.map((f) => (
-            <SelectItem className="gap-2 rounded-lg py-2" key={f.id} value={f.id}>
+            <SelectItem key={f.id} value={f.id}>
               <Logo className="size-4" name={FILE_LOGO[f.kind]} />
               {fileName(f)}
             </SelectItem>
@@ -210,11 +186,11 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
   };
 
   return (
-    <section aria-label="Outputs" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-1 pb-5 text-[13px] text-slate-100 [scrollbar-width:thin]">
+    <section aria-label="Outputs" className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
       <div className="flex flex-col gap-2">
-        <SectionLabel end={settings.files.length > 0 ? `${settings.files.length} connected` : undefined}>Connected files</SectionLabel>
+        <SectionLabel>Files</SectionLabel>
         {!googleReady && (
-          <GlassAlert className="rounded-2xl border-white/10 bg-white/[0.04]" glassVariant="subtle">
+          <GlassAlert glassVariant="subtle">
             <AlertTitle>Google sign-in isn’t set up in this build</AlertTitle>
             <AlertDescription className="text-xs">
               Add a Google OAuth client ID to the extension’s <code>.env</code> as <code>WXT_GOOGLE_CLIENT_ID</code>, then rebuild.
@@ -223,71 +199,79 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
         )}
 
         {settings.files.length > 0 ? (
-          settings.files.map((f) => {
-            const info = state.files[f.id];
-            return (
-              <GlassItem
-                className={cn(
-                  ROW,
-                  "neon min-h-[58px] flex-nowrap gap-3 rounded-2xl border-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.075),rgba(255,255,255,0.025)_55%,rgba(255,255,255,0.055))] px-3 py-2.5",
-                  fileTint(f.kind)
-                )}
-                glassVariant="subtle"
-                key={f.id}
-                size="sm"
-              >
-                <Tile>
-                  <Logo name={FILE_LOGO[f.kind]} />
-                </Tile>
-                <ItemContent className="min-w-0 gap-0.5">
-                  <ItemTitle className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px] leading-5 font-medium tracking-[-0.015em] text-slate-50">
-                    <span className="truncate">{fileName(f)}</span>
-                    {focus?.id === f.id && settings.files.length > 1 && (
-                      <GlassBadge className="neon neon-violet neon-soft shrink-0 rounded-full px-2 py-0 text-[10px] leading-4 font-medium" glassVariant="liquid">
-                        Working on
-                      </GlassBadge>
-                    )}
-                  </ItemTitle>
-                  <ItemDescription className="truncate text-xs leading-4 text-slate-400">{KIND_LABEL[f.kind]}</ItemDescription>
-                  {info?.error && <ProblemCard className="mt-1.5" onRetry={() => void engine.refreshFiles()} problem={info.error} />}
-                </ItemContent>
-                <ItemActions className="shrink-0 gap-2">
-                  <GlassButton aria-label={`Open ${f.title}`} className={ROUND} glassVariant="subtle" onClick={() => void chrome.tabs.create({ url: fileUrl(f) })} size="icon-sm">
-                    <ExternalLinkIcon />
-                  </GlassButton>
-                  <GlassButton aria-label={`Disconnect ${f.title}`} className={ROUND} glassVariant="subtle" onClick={() => removeFile(f.id)} size="icon-sm">
-                    <XIcon />
-                  </GlassButton>
-                </ItemActions>
-              </GlassItem>
-            );
-          })
+          <GlassCard className="gap-0 py-1" glassVariant="subtle">
+            <ItemGroup className="gap-0">
+              {settings.files.map((f, i) => {
+                const info = state.files[f.id];
+                const parts = info?.parts ?? [];
+                return (
+                  <div key={f.id}>
+                    {i > 0 && <GlassSeparator className="mx-3" glassVariant="subtle" />}
+                    <GlassItem className="items-start gap-3 rounded-none border-0 px-3 shadow-none" glassVariant="clear" size="sm">
+                      <Tile>
+                        <Logo name={FILE_LOGO[f.kind]} />
+                      </Tile>
+                      <ItemContent className="min-w-0">
+                        <ItemTitle className="flex flex-wrap items-center gap-1.5">
+                          <span className="truncate">{fileName(f)}</span>
+                          {focus?.id === f.id && settings.files.length > 1 && <GlassBadge glassVariant="liquid">Working on</GlassBadge>}
+                        </ItemTitle>
+                        {info?.error && <ProblemCard className="mt-1.5" onRetry={() => void engine.refreshFiles()} problem={info.error} />}
+                        {parts.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {parts.slice(0, 4).map((p) => (
+                              <GlassBadge glassVariant="subtle" key={p}>
+                                <AnchorIcon />
+                                {p}
+                              </GlassBadge>
+                            ))}
+                            {parts.length > 4 && <GlassBadge glassVariant="subtle">+{parts.length - 4}</GlassBadge>}
+                          </div>
+                        )}
+                      </ItemContent>
+                      <ItemActions>
+                        <GlassButton aria-label={`Open ${f.title}`} glassVariant="subtle" onClick={() => void chrome.tabs.create({ url: fileUrl(f) })} size="icon-xs">
+                          <ExternalLinkIcon />
+                        </GlassButton>
+                        <GlassButton aria-label={`Disconnect ${f.title}`} glassVariant="subtle" onClick={() => removeFile(f.id)} size="icon-xs">
+                          <XIcon />
+                        </GlassButton>
+                      </ItemActions>
+                    </GlassItem>
+                  </div>
+                );
+              })}
+            </ItemGroup>
+          </GlassCard>
         ) : (
           <Hint>No files yet. Add one that’s open, or paste a link.</Hint>
         )}
 
-        {googleReady &&
-          openTabs.map((t) => (
-            <GlassItem className={cn(ROW, "neon neon-soft min-h-[58px] flex-nowrap border-0 bg-white/[0.04]", fileTint(t.kind))} glassVariant="subtle" key={t.id} size="sm">
-              <Tile>
-                <Logo name={FILE_LOGO[t.kind]} />
-              </Tile>
-              <ItemContent className="min-w-0 gap-0.5">
-                <ItemTitle className="truncate text-[14px] leading-5 font-medium text-slate-100">{t.title}</ItemTitle>
-                <ItemDescription className="truncate text-xs text-slate-400">Open in Chrome</ItemDescription>
-              </ItemContent>
-              <ItemActions className="shrink-0">
-                <GlassButton className={cn(ADD_BUTTON, "h-8 gap-1.5 bg-white/[0.06] px-3.5 text-[13px]", fileTint(t.kind))} disabled={busy !== null} glassVariant="subtle" onClick={() => addFile({ id: t.id, kind: t.kind, title: t.title })} size="xs">
-                  <PlusIcon className="size-4" />
-                  {busy === `add-${t.id}` ? "Adding…" : "Add"}
-                </GlassButton>
-              </ItemActions>
-            </GlassItem>
-          ))}
+        {googleReady && openTabs.length > 0 && (
+          <>
+            <SectionLabel>Open in this window</SectionLabel>
+            {openTabs.map((t) => (
+              <GlassItem className="gap-3 px-3" glassVariant="subtle" key={t.id} size="sm">
+                <Tile>
+                  <Logo name={FILE_LOGO[t.kind]} />
+                </Tile>
+                <ItemContent className="min-w-0">
+                  <ItemTitle className="truncate">{t.title}</ItemTitle>
+                </ItemContent>
+                <ItemActions>
+                  <GlassButton disabled={busy !== null} onClick={() => addFile({ id: t.id, kind: t.kind, title: t.title })} size="xs">
+                    <PlusIcon />
+                    {busy === `add-${t.id}` ? "Adding…" : "Add"}
+                  </GlassButton>
+                </ItemActions>
+              </GlassItem>
+            ))}
+          </>
+        )}
 
         {googleReady && (
           <form
-            className="mt-1 flex items-center gap-2"
+            className="flex gap-1.5"
             onSubmit={(e) => {
               e.preventDefault();
               const parsed = parseGoogleUrl(link);
@@ -296,21 +280,18 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
               void addFile({ ...parsed, title: KIND_LABEL[parsed.kind] });
             }}
           >
-            <div className="relative min-w-0 flex-1">
-              <span className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center gap-1">
-                <Logo className="size-3.5" name="doc" />
-                <Logo className="size-3.5" name="sheet" />
-                <Logo className="size-3.5" name="slides" />
-              </span>
-              <GlassInput aria-label="Link to a Google Doc, Sheet or Slides file" className="h-9 rounded-full border-white/[0.12] bg-white/[0.035] pl-[4.6rem] text-xs text-slate-100 placeholder:text-slate-500 focus-visible:ring-violet-400/40" glassVariant="subtle" onChange={(e) => setLink(e.target.value)} placeholder="Paste a link" value={link} />
-            </div>
-            <GlassButton className={cn(ADD_BUTTON, "h-8 bg-white/[0.055] text-xs")} disabled={busy !== null || !link.trim()} glassVariant="subtle" size="xs" type="submit">
+            <span className="flex shrink-0 items-center gap-1 px-1">
+              <Logo className="size-4" name="doc" />
+              <Logo className="size-4" name="sheet" />
+              <Logo className="size-4" name="slides" />
+            </span>
+            <GlassInput aria-label="Link to a Google Doc, Sheet or Slides file" className="h-8 text-xs" onChange={(e) => setLink(e.target.value)} placeholder="Paste a link" value={link} />
+            <GlassButton disabled={busy !== null || !link.trim()} size="sm" type="submit">
               Add
             </GlassButton>
             {settings.files.length > 0 && (
               <GlassButton
                 aria-label="Read files again"
-                className={ROUND}
                 disabled={busy !== null}
                 glassVariant="subtle"
                 onClick={() => run("refresh", async () => void (await engine.refreshFiles()))}
@@ -324,61 +305,41 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
           </form>
         )}
         {problem && <ProblemCard onDismiss={() => setProblem(null)} onRetry={problem.retry} problem={problem.error} />}
-      </div>
 
-      <div className="flex flex-col gap-2">
-        <SectionLabel>Other apps</SectionLabel>
         <ObsidianSection connected={settings.files} meetingTitle={state.meet?.title ?? null} onAdd={addLocal} />
         <OverleafSection connected={settings.files} onAdd={addLocal} />
+
+        {googleReady && (
+          <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
+            <Tile>
+              <Logo name="google" />
+            </Tile>
+            <ItemContent className="min-w-0">
+              <ItemTitle>Google account</ItemTitle>
+              <ItemDescription className="flex items-center gap-1 truncate">
+                <ShieldCheckIcon className="size-3 shrink-0" />
+                Edits use your name
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <GlassButton glassVariant="subtle" onClick={() => run("signout", async () => { await signOutGoogle(); return "Signed out of Google"; })} size="xs">
+                Sign out
+              </GlassButton>
+            </ItemActions>
+          </GlassItem>
+        )}
       </div>
 
-      {settings.files.length > 1 && (
+      {settings.files.length > 0 && (
         <div className="flex flex-col gap-2">
-          <SectionLabel>Work on</SectionLabel>
-          <div className="flex items-center gap-2 px-1">
-            <CrosshairIcon className="size-4 shrink-0 text-slate-400" />
-            <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-              <span className="text-xs text-slate-300">Which file gets the edits</span>
-              <span className="text-[11px] text-slate-500">For requests that name no file</span>
-            </div>
-          </div>
-          {fileSelect("File to work on", settings.files, focus?.id ?? "any", (v) => update({ focusFileId: v === "any" ? null : v }), { value: "any", label: "Any file" })}
-        </div>
-      )}
-
-      <GlassItem
-        className={cn(ROW, "neon min-h-[62px] flex-nowrap gap-3 rounded-2xl border-0 bg-[linear-gradient(115deg,rgba(45,212,191,0.07),rgba(139,92,246,0.10)_55%,rgba(245,158,11,0.06))] px-3 py-3")}
-        glassVariant="subtle"
-        size="sm"
-      >
-        <Tile>
-          <UsersRoundIcon className="size-6 text-slate-300" />
-        </Tile>
-        <ItemContent className="min-w-0 gap-0.5">
-          <ItemTitle className="text-[14px] leading-5 font-medium tracking-[-0.015em] text-slate-50">Credit each change</ItemTitle>
-          <ItemDescription className="truncate text-xs text-slate-400">Who said it, as a note</ItemDescription>
-        </ItemContent>
-        <ItemActions className="shrink-0">
-          <LiquidSwitch
-            aria-label="Credit each change"
-            checked={settings.outputs.docComments}
-            className="rounded-full shadow-[0_0_18px_-7px_rgba(168,85,247,0.7)]"
-            onCheckedChange={(v: boolean) => update({ outputs: { ...settings.outputs, docComments: v } })}
-          />
-        </ItemActions>
-      </GlassItem>
-
-      <Collapsible className="flex flex-col gap-2">
-        <CollapsibleTrigger className="group flex items-center gap-2 rounded-lg px-1 py-1 text-[13px] font-medium text-slate-400 transition-colors hover:text-slate-200">
-          <SlidersHorizontalIcon className="size-3.5 text-muted-foreground" />
-          More settings
-          <ChevronDownIcon className="ml-auto size-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="flex flex-col gap-2">
-          <RadioGroup className="gap-2" onValueChange={(v) => update({ commentsOnly: v === "comment" })} value={settings.commentsOnly ? "comment" : "edit"}>
-            <ChoiceRow description="Auto or Ask before writing, set on Live" id="land-edit" title="Edit the file" value="edit" />
-            <ChoiceRow description="A comment, cell note or speaker note. Text unchanged" id="land-comment" title="Comments only" value="comment" />
-          </RadioGroup>
+          <SectionLabel>Where things go</SectionLabel>
+          {settings.files.length > 1 &&
+            pickRow(
+              <CrosshairIcon />,
+              "Work on",
+              "For requests that name no file",
+              fileSelect("File to work on", settings.files, focus?.id ?? "any", (v) => update({ focusFileId: v === "any" ? null : v }), { value: "any", label: "Any file" })
+            )}
           {docs.length > 0 &&
             pickRow(
               <ScrollTextIcon />,
@@ -386,35 +347,43 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
               transcript ? `Transcript goes in ${fileName(transcript)}` : "Every line, word for word",
               docs.length > 1 ? fileSelect("Doc for Record all", docs, transcriptId, (v) => update({ transcriptFileId: v })) : null
             )}
-          {settings.files.length > 0 &&
-            pickRow(
-              <Logo name="drive" />,
-              "Screenshots and recordings",
-              "Originals stay in your Drive",
-              fileSelect("File for screenshots and recordings", settings.files, capture?.id, (v) => update({ screen: { ...settings.screen, targetFileId: v } })),
-              <Hint className="px-0 pt-2 leading-relaxed">Pictures are public for a few seconds while Google copies them, then private again.</Hint>
-            )}
-          {googleReady && (
-            <GlassItem className={cn(ROW, "flex-nowrap bg-white/[0.035]")} glassVariant="subtle" size="sm">
-              <Tile>
-                <Logo name="google" />
-              </Tile>
-              <ItemContent className="min-w-0 gap-0.5">
-                <ItemTitle className="text-[13px] font-medium">Google account</ItemTitle>
-                <ItemDescription className="flex items-center gap-1 truncate text-xs text-slate-400">
-                  <ShieldCheckIcon className="size-3 shrink-0" />
-                  Edits use your name
-                </ItemDescription>
-              </ItemContent>
-              <ItemActions>
-                <GlassButton className="h-7 rounded-full border border-white/10 bg-white/[0.05] px-3" glassVariant="subtle" onClick={() => run("signout", async () => { await signOutGoogle(); return "Signed out of Google"; })} size="xs">
-                  Sign out
-                </GlassButton>
-              </ItemActions>
-            </GlassItem>
+          {pickRow(
+            <Logo name="drive" />,
+            "Screenshots and recordings",
+            "Originals stay in your Drive",
+            fileSelect("File for screenshots and recordings", settings.files, capture?.id, (v) => update({ screen: { ...settings.screen, targetFileId: v } })),
+            <Hint className="px-0 pt-1">Pictures are public for a few seconds while Google copies them, then private again.</Hint>
           )}
-        </CollapsibleContent>
-      </Collapsible>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <SectionLabel>How changes land</SectionLabel>
+        <RadioGroup className="gap-2" onValueChange={(v) => update({ commentsOnly: v === "comment" })} value={settings.commentsOnly ? "comment" : "edit"}>
+          <ChoiceRow description="Auto or Ask before writing, set on Live" id="land-edit" title="Edit the file" value="edit" />
+          <ChoiceRow description="A comment, cell note or speaker note. Text unchanged" id="land-comment" title="Comments only" value="comment" />
+        </RadioGroup>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <SectionLabel>Also</SectionLabel>
+        <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
+          <Tile>
+            <MessageSquareQuoteIcon />
+          </Tile>
+          <ItemContent className="min-w-0">
+            <ItemTitle>Credit each change</ItemTitle>
+            <ItemDescription className="truncate">Who asked, as a note</ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <LiquidSwitch
+              aria-label="Credit each change"
+              checked={settings.outputs.docComments}
+              onCheckedChange={(v: boolean) => update({ outputs: { ...settings.outputs, docComments: v } })}
+            />
+          </ItemActions>
+        </GlassItem>
+      </div>
     </section>
   );
 }

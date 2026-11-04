@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { AudioLinesIcon, FileTextIcon, PauseIcon, PlayIcon, SparklesIcon, UsersIcon } from "lucide-react";
+import { FileTextIcon, PauseIcon, PlayIcon } from "lucide-react";
 
 import { FILE_LOGO, Logo } from "./logos";
 
@@ -42,13 +42,13 @@ const STATUS: Record<string, { label: string; live?: boolean }> = {
   error: { label: "Problem" },
 };
 
-/** "v0.8 · 18:24": the version and when this build was made, so you can tell a reload took. */
+/** "v0.9 · 18:24": the version and when this build was made, so you can tell a reload took. */
 function BuildStamp() {
   const version = chrome.runtime.getManifest().version.replace(/\.0$/, "");
   const built = new Date(typeof __SCRIBE_BUILT__ === "string" ? __SCRIBE_BUILT__ : Date.now());
   const time = built.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return (
-    <span className="whitespace-nowrap font-normal text-[10px] text-muted-foreground/65 tabular-nums" title={`Speak and Edit ${chrome.runtime.getManifest().version}, built ${built.toLocaleString()}`}>
+    <span className="font-normal text-[11px] text-muted-foreground tabular-nums" title={`Speak and Edit ${chrome.runtime.getManifest().version}, built ${built.toLocaleString()}`}>
       v{version} · {time}
     </span>
   );
@@ -140,128 +140,116 @@ export function App() {
 
   return (
     <FixContext.Provider value={runFix}>
-      <TooltipProvider>
-        <GlassTooltipProvider>
-          <div aria-hidden="true" className="fixed inset-0 -z-10 bg-black">
-            <img alt="" className="size-full object-cover" src={background} />
-          </div>
-          <div className="h-svh w-full p-2 text-[13px] antialiased">
-            <GlassCard className="glass-scope neon flex h-full w-full flex-col gap-0 overflow-hidden rounded-[24px] border-0 bg-black/70 py-0 text-foreground backdrop-blur-xl [--neon-opacity:0.6] dark:bg-black/70" glassVariant="frosted">
-              <header className="grid shrink-0 grid-cols-[36px_minmax(0,1fr)_44px] items-center gap-x-2.5 gap-y-2 px-3.5 pt-3.5">
-                <img alt="" className="size-9 shrink-0 object-contain drop-shadow-[0_0_12px_rgba(168,85,247,0.65)]" src={logo} />
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="whitespace-nowrap font-semibold text-[17px] leading-6 tracking-[-0.025em] text-white">Speak and Edit</span>
-                  <GlassBadge className="neon neon-soft gap-1.5 rounded-full border-0 bg-gradient-to-br from-white/[0.09] to-sky-950/40 px-2.5 py-1 font-medium text-[12px] leading-4 text-white" glassVariant="liquid">
-                    <span className={cn("size-[7px] shrink-0 rounded-full", status.live ? "animate-pulse bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.65)]" : "bg-muted-foreground")} />
-                    {status.label}
+    <TooltipProvider>
+      <GlassTooltipProvider>
+        <div aria-hidden="true" className="fixed inset-0 -z-10 bg-black">
+          <img alt="" className="size-full object-cover" src={background} />
+        </div>
+        <div className="h-svh w-full p-2">
+        <GlassCard className="glass-scope h-full w-full gap-0 overflow-hidden rounded-[24px] py-0 text-foreground dark:bg-black/60" glassVariant="frosted">
+          <header className="flex items-start justify-between gap-2 px-4 pt-4">
+            <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex items-center gap-2 font-semibold">
+                <img alt="" className="size-5 shrink-0" src={logo} />
+                Speak and Edit
+                <BuildStamp />
+                <GlassBadge className="gap-1.5" glassVariant="liquid">
+                  <span className={cn("size-1.5 rounded-full", status.live ? "animate-pulse bg-red-500" : "bg-muted-foreground")} />
+                  {status.label}
+                </GlassBadge>
+                {recorder.timing && (
+                  <GlassBadge className="gap-1.5 text-red-700 tabular-nums dark:text-red-300" glassVariant="liquid">
+                    <span className={cn("size-1.5 rounded-full bg-red-500", !recorder.paused && "animate-pulse")} />
+                    {recorder.paused ? `Recording paused ${elapsed}` : `Recording ${elapsed}`}
                   </GlassBadge>
-                  {recorder.timing && (
-                    <GlassBadge className="neon neon-red neon-soft gap-1.5 rounded-full border-0 bg-red-950/20 px-2.5 py-1 text-[11px] leading-4 text-red-300 tabular-nums" glassVariant="liquid">
-                      <span className={cn("size-1.5 rounded-full bg-red-500", !recorder.paused && "animate-pulse")} />
-                      {recorder.paused ? `Recording paused ${elapsed}` : `Recording ${elapsed}`}
-                    </GlassBadge>
-                  )}
-                  <BuildStamp />
-                </div>
-                <div className="col-start-3 row-span-2 row-start-1 self-start">
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <GlassIcon
-                          aria-label={meet?.paused ? "Resume listening" : "Pause listening"}
-                          className="neon size-11 rounded-full border-0 bg-[radial-gradient(ellipse_at_65%_100%,rgba(56,189,248,0.3),transparent_65%),linear-gradient(145deg,rgba(139,92,246,0.2),rgba(15,23,42,0.6))] text-white [--neon-a:#a5b4fc] [--neon-b:#7dd3fc] [--neon-c:#818cf8] [--neon-glow:rgba(96,165,250,0.6)] [&_svg]:size-5 [&_svg]:fill-current [&_svg]:stroke-[2.5]"
-                          disabled={!meetTabId || meet?.status !== "listening"}
-                          onClick={() => void setPaused(!meet?.paused)}
-                          size="md"
-                        />
-                      }
-                    >
-                      {meet?.paused ? <PlayIcon /> : <PauseIcon />}
-                    </TooltipTrigger>
-                    <TooltipContent>{meet?.paused ? "Resume listening" : "Pause listening"}</TooltipContent>
-                  </Tooltip>
-                </div>
-                <div className="col-span-2 flex min-w-0 items-center gap-3 pl-1 text-[13px] leading-5 text-muted-foreground">
-                  <span className="inline-flex min-w-0 items-center gap-2">
-                    <Logo className="size-[18px] shrink-0" name="meet" />
-                    <span className="truncate text-foreground/95">{meet?.title ?? "Google Meet"}</span>
-                  </span>
-                  {(() => {
-                    const shown = focus ?? (settings.files.length === 1 ? settings.files[0]! : null);
-                    const name = (id: string, fallback: string) => state.files[id]?.title ?? fallback;
-                    return (
-                      <span className="inline-flex min-w-0 items-center gap-1.5">
-                        {shown ? <Logo className="size-4 shrink-0" name={FILE_LOGO[shown.kind]} /> : <FileTextIcon className="size-4 shrink-0 text-[#9097b2]" />}
-                        <span className="truncate">
-                          {settings.files.length === 0
-                            ? "No file"
-                            : shown
-                              ? `${name(shown.id, shown.title)}${settings.files.length > 1 ? ` · ${settings.files.length} files` : ""}`
-                              : `${settings.files.length} files`}
-                        </span>
-                      </span>
-                    );
-                  })()}
-                </div>
-                {detail && <p className="col-span-3 px-1 text-xs leading-relaxed text-muted-foreground">{detail}</p>}
-              </header>
-
-              <div className="shrink-0 px-3 pt-3.5 pb-2.5">
-                <GlassToggleGroup
-                  aria-label="Sections"
-                  className="neon neon-soft h-[44px] w-full gap-0 rounded-full border-0 bg-[linear-gradient(110deg,rgba(76,29,149,0.14),rgba(8,13,25,0.6)_45%,rgba(45,212,191,0.08))] p-[3px]"
-                  onValueChange={(v) => setTab(v as Tab)}
-                  puckClassName="neon rounded-full border-0 bg-[linear-gradient(135deg,rgba(99,102,241,0.28),rgba(109,40,217,0.34)_60%,rgba(168,85,247,0.22))] backdrop-blur-xl"
-                  value={tab}
-                >
-                  {(
-                    [
-                      ["live", "Live", AudioLinesIcon],
-                      ["outputs", "Outputs", FileTextIcon],
-                      ["ai", "AI", SparklesIcon],
-                      ["people", "People", UsersIcon],
-                    ] as const
-                  ).map(([value, label, Icon]) => (
-                    <GlassToggleGroupItem
-                      className={cn(
-                        "h-[38px] min-w-0 flex-1 gap-2 rounded-full px-2 py-0 text-[13px] font-medium transition-colors hover:bg-white/[0.04] hover:text-white",
-                        tab === value ? "text-white" : "text-[#b6bdd3]"
-                      )}
-                      key={value}
-                      value={value}
-                    >
-                      <Icon className={cn("size-[17px] shrink-0", tab === value ? "text-violet-300 drop-shadow-[0_0_6px_rgba(168,85,247,0.7)]" : "text-[#829cde]")} />
-                      {label}
-                    </GlassToggleGroupItem>
-                  ))}
-                </GlassToggleGroup>
+                )}
               </div>
+              <div className="flex min-w-0 items-center gap-1.5 font-medium">
+                <Logo className="size-4" name="meet" />
+                <span className="truncate">{meet?.title ?? "Google Meet"}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground text-xs">
+                {(() => {
+                  const shown = focus ?? (settings.files.length === 1 ? settings.files[0]! : null);
+                  const name = (id: string, fallback: string) => state.files[id]?.title ?? fallback;
+                  return (
+                    <span className="inline-flex min-w-0 items-center gap-1">
+                      {shown ? <Logo className="size-3.5" name={FILE_LOGO[shown.kind]} /> : <FileTextIcon className="size-3" />}
+                      <span className="truncate">
+                        {settings.files.length === 0
+                          ? "No file connected"
+                          : shown
+                            ? `${name(shown.id, shown.title)}${settings.files.length > 1 ? ` · ${settings.files.length} files` : ""}`
+                            : `${settings.files.length} files connected`}
+                      </span>
+                    </span>
+                  );
+                })()}
+              </div>
+              {detail && <p className="text-muted-foreground text-xs">{detail}</p>}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <GlassIcon
+                      aria-label={meet?.paused ? "Resume listening" : "Pause listening"}
+                      disabled={!meetTabId || meet?.status !== "listening"}
+                      onClick={() => void setPaused(!meet?.paused)}
+                      size="sm"
+                    />
+                  }
+                >
+                  {meet?.paused ? <PlayIcon /> : <PauseIcon />}
+                </TooltipTrigger>
+                <TooltipContent>{meet?.paused ? "Resume listening" : "Pause listening"}</TooltipContent>
+              </Tooltip>
+            </div>
+          </header>
 
-              {tab === "live" && <LiveTab engine={engine} recorder={{ ...recorder, elapsed }} settings={settings} state={state} update={update} />}
-              {tab === "outputs" && <OutputsTab engine={engine} settings={settings} state={state} update={update} />}
-              {tab === "ai" && <AiTab connectChatGpt={connectChatGpt} settings={settings} signInRequest={signInRequest} state={state} update={update} />}
-              {tab === "people" && <PeopleTab settings={settings} state={state} update={update} />}
-            </GlassCard>
+          <div className="flex justify-center px-3 pt-3 pb-2">
+            <GlassToggleGroup aria-label="Scribe sections" onValueChange={(v) => setTab(v as Tab)} value={tab}>
+              <GlassToggleGroupItem className="px-3 py-1.5" value="live">
+                Live
+              </GlassToggleGroupItem>
+              <GlassToggleGroupItem className="px-3 py-1.5" value="outputs">
+                Outputs
+              </GlassToggleGroupItem>
+              <GlassToggleGroupItem className="px-3 py-1.5" value="ai">
+                AI model
+              </GlassToggleGroupItem>
+              <GlassToggleGroupItem className="px-3 py-1.5" value="people">
+                People
+              </GlassToggleGroupItem>
+            </GlassToggleGroup>
           </div>
-          <Toaster position="bottom-center" />
-          <Dialog onOpenChange={setWelcome} open={welcome}>
-            <DialogContent className="neon max-w-80 rounded-[22px] border-0 bg-[#0c0d19]/95 text-foreground backdrop-blur-xl">
-              <DialogHeader>
-                <DialogTitle>You’re using your ChatGPT plan</DialogTitle>
-                <DialogDescription>Eligible usage in this app uses your ChatGPT plan. Manage usage in your ChatGPT settings.</DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="gap-2">
-                <GlassButton className="rounded-full" glassVariant="subtle" onClick={() => open(MANAGE_USAGE_URL)} size="sm">
-                  Manage usage
-                </GlassButton>
-                <GlassButton className="neon rounded-full" onClick={() => setWelcome(false)} size="sm">
-                  Got it
-                </GlassButton>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </GlassTooltipProvider>
-      </TooltipProvider>
+
+          {tab === "live" && <LiveTab engine={engine} recorder={{ ...recorder, elapsed }} settings={settings} state={state} update={update} />}
+          {tab === "outputs" && <OutputsTab engine={engine} settings={settings} state={state} update={update} />}
+          {tab === "ai" && <AiTab connectChatGpt={connectChatGpt} settings={settings} signInRequest={signInRequest} state={state} update={update} />}
+          {tab === "people" && <PeopleTab settings={settings} state={state} update={update} />}
+
+        </GlassCard>
+        </div>
+        <Toaster position="bottom-center" />
+        <Dialog onOpenChange={setWelcome} open={welcome}>
+          <DialogContent className="max-w-80">
+            <DialogHeader>
+              <DialogTitle>You’re using your ChatGPT plan</DialogTitle>
+              <DialogDescription>Eligible usage in this app uses your ChatGPT plan. Manage usage in your ChatGPT settings.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <GlassButton glassVariant="subtle" onClick={() => open(MANAGE_USAGE_URL)} size="sm">
+                Manage usage
+              </GlassButton>
+              <GlassButton onClick={() => setWelcome(false)} size="sm">
+                Got it
+              </GlassButton>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </GlassTooltipProvider>
+    </TooltipProvider>
     </FixContext.Provider>
   );
 }

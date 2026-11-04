@@ -12,7 +12,6 @@ import { GlassButton } from "@/components/glasscn/ui/glasscn/glass-button";
 import { GlassItem } from "@/components/glasscn/ui/glasscn/glass-item";
 
 import { Logo } from "./logos";
-import { ADD_BUTTON, ROW, TILE } from "./shared";
 import { ProblemCard } from "./problem";
 
 /** Where Scribe keeps meeting notes inside the vault. */
@@ -65,8 +64,8 @@ export function ObsidianSection(props: { connected: FileRef[]; meetingTitle: str
 
   return (
     <div className="flex flex-col gap-2">
-      <GlassItem className={ROW} glassVariant="subtle" size="sm">
-        <ItemMedia className={TILE}>
+      <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
+        <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10">
           <Logo name="obsidian" />
         </ItemMedia>
         <ItemContent className="min-w-0">
@@ -75,27 +74,27 @@ export function ObsidianSection(props: { connected: FileRef[]; meetingTitle: str
         </ItemContent>
         <ItemActions>
           {!vault ? (
-            <GlassButton className={ADD_BUTTON} glassVariant="subtle" onClick={choose} size="xs">
+            <GlassButton onClick={choose} size="xs">
               <FolderOpenIcon />
               Choose vault
             </GlassButton>
           ) : !allowed ? (
-            <GlassButton className={ADD_BUTTON} glassVariant="subtle" onClick={allow} size="xs">
+            <GlassButton onClick={allow} size="xs">
               Allow
             </GlassButton>
           ) : (
-            <GlassButton className={ADD_BUTTON} glassVariant="subtle" onClick={() => void create()} size="xs">
+            <GlassButton onClick={() => void create()} size="xs">
               <PlusIcon />
               New note
             </GlassButton>
           )}
         </ItemActions>
         {vault && allowed && (
-          <div className="flex basis-full flex-col gap-1 pl-[3.25rem]">
+          <div className="flex basis-full flex-col gap-1 pl-11">
             {unused.map((p) => (
               <div className="flex items-center gap-2 text-xs" key={p}>
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">{p.replace(`${NOTES_FOLDER}/`, "").replace(/\.md$/, "")}</span>
-                <GlassButton className="h-6 rounded-full px-2.5" glassVariant="subtle" onClick={() => void props.onAdd(ref(vault, p))} size="xs">
+                <GlassButton glassVariant="subtle" onClick={() => void props.onAdd(ref(vault, p))} size="xs">
                   Add
                 </GlassButton>
               </div>

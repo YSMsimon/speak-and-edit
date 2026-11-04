@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { browserAI } from "@browser-ai/core";
-import { CheckIcon, ChevronDownIcon, ExternalLinkIcon, EyeIcon, KeyRoundIcon, MicIcon, ShieldCheckIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, ExternalLinkIcon, MicIcon, MonitorUpIcon, ShieldCheckIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { pingModel } from "@/lib/ai/agent";
@@ -32,7 +32,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 import { Logo, PROVIDER_LOGO } from "./logos";
 import { ProblemCard } from "./problem";
-import { Hint, SectionLabel, subtle, TILE } from "./shared";
+import { Hint, SectionLabel, subtle } from "./shared";
 
 /** One short line per provider. The setup details show only when a row is open. */
 const BLURB: Record<ProviderId, string> = {
@@ -118,9 +118,9 @@ export function AiTab(props: {
   const setModel = (id: ProviderId, model: string) => update((s) => ({ models: { ...s.models, [id]: model } }));
 
   const testRow = (id: ProviderId) => (
-    <div className="mt-1 flex flex-col gap-2">
+    <div className="mt-1 flex flex-col gap-1.5">
       <div className="flex">
-        <GlassButton className="h-7 rounded-full border-white/15 bg-white/[0.06] px-3 text-xs" disabled={busy !== null} onClick={() => runTest(id)} size="xs">
+        <GlassButton disabled={busy !== null} onClick={() => runTest(id)} size="xs">
           {busy === id ? "Testing…" : "Test"}
         </GlassButton>
       </div>
@@ -202,15 +202,15 @@ export function AiTab(props: {
   const action = (id: ProviderId) => {
     if (settings.provider === id) {
       return (
-        <GlassBadge className="neon neon-green neon-soft gap-1 rounded-full border-transparent px-2 py-1 text-[11px]" glassVariant="liquid">
-          <CheckIcon className="size-3 text-emerald-300" />
+        <GlassBadge className="gap-1" glassVariant="liquid">
+          <CheckIcon />
           In use
         </GlassBadge>
       );
     }
     if (id === "chatgpt" && !signedIn) {
       return (
-        <GlassButton className="neon neon-teal neon-soft rounded-full px-3" disabled={busy !== null} onClick={() => void connectChatGpt()} size="xs">
+        <GlassButton disabled={busy !== null} onClick={() => void connectChatGpt()} size="xs">
           <Logo className="size-3.5" name="chatgpt" />
           {busy === "chatgpt" ? "Signing in…" : "Continue with ChatGPT"}
         </GlassButton>
@@ -218,41 +218,40 @@ export function AiTab(props: {
     }
     if (id === "openrouter" && !settings.keys.openrouter) {
       return (
-        <GlassButton className="neon neon-soft rounded-full px-3" disabled={busy !== null} onClick={connectRouter} size="xs">
+        <GlassButton disabled={busy !== null} onClick={connectRouter} size="xs">
           {busy === "openrouter" ? "Connecting…" : "Connect"}
         </GlassButton>
       );
     }
     if (ADVANCED_PROVIDERS.includes(id) && !settings.keys[id]) {
       return (
-        <GlassButton className="neon neon-soft rounded-full px-3" onClick={() => setOpen(open === id ? null : id)} size="xs">
+        <GlassButton onClick={() => setOpen(open === id ? null : id)} size="xs">
           Add key
         </GlassButton>
       );
     }
     return (
-      <GlassButton className="neon neon-soft rounded-full px-3" onClick={() => (ADVANCED_PROVIDERS.includes(id) ? useKeyProvider(id) : choose(id))} size="xs">
+      <GlassButton onClick={() => (ADVANCED_PROVIDERS.includes(id) ? useKeyProvider(id) : choose(id))} size="xs">
         Use
       </GlassButton>
     );
   };
 
   const keySetup = (id: ProviderId) => (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
       <GlassInput
         aria-label={`${PROVIDER_LABEL[id]} API key`}
         autoComplete="off"
-        className="h-9 rounded-xl border-white/15 bg-white/[0.05] text-xs"
+        className="h-7 text-xs"
         onChange={(e) => setKey(id, e.target.value)}
         placeholder={id === "openrouter" ? "Connected key, or paste one" : "Paste API key"}
         type="password"
         value={settings.keys[id] ?? ""}
       />
-      <GlassInput aria-label={`${PROVIDER_LABEL[id]} model`} className="h-9 rounded-xl border-white/15 bg-white/[0.05] font-mono text-xs" onChange={(e) => setModel(id, e.target.value)} value={settings.models[id]} />
-      {KEY_HELP[id] && <Hint className="px-0 leading-relaxed">{KEY_HELP[id]}</Hint>}
+      <GlassInput aria-label={`${PROVIDER_LABEL[id]} model`} className="h-7 font-mono text-xs" onChange={(e) => setModel(id, e.target.value)} value={settings.models[id]} />
+      {KEY_HELP[id] && <Hint className="px-0">{KEY_HELP[id]}</Hint>}
       <div className="flex">
         <GlassButton
-          className="h-7 rounded-full px-3"
           disabled={busy !== null || !settings.keys[id]}
           onClick={() => {
             // Ask for the permission from the click, then test.
@@ -270,14 +269,13 @@ export function AiTab(props: {
     if (id === "chrome") return testRow("chrome");
     if (id === "ollama") {
       return (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-1.5">
           <GlassSelect
             items={ollamaChoices.map((m) => ({ value: m, label: `${m}${isOllamaCloud(m) ? " · cloud, free" : " · on this computer"}` }))}
             onValueChange={(v) => v && setModel("ollama", String(v))}
             value={settings.models.ollama}
           >
-            <GlassSelectTrigger aria-label="Ollama model" className="h-10 w-full rounded-[14px] border-white/20 bg-white/[0.07] px-3 text-[13px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" size="sm">
-              <Logo className="size-5 shrink-0" name="ollama" />
+            <GlassSelectTrigger aria-label="Ollama model" size="sm">
               <SelectValue />
             </GlassSelectTrigger>
             <GlassSelectContent>
@@ -291,13 +289,13 @@ export function AiTab(props: {
           </GlassSelect>
           <Collapsible>
             <CollapsibleTrigger asChild>
-              <GlassButton className="group rounded-full text-xs" glassVariant="subtle" size="xs">
+              <GlassButton className="group" glassVariant="subtle" size="xs">
                 Can’t connect?
                 <ChevronDownIcon className="transition-transform group-data-[state=open]:rotate-180" />
               </GlassButton>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 flex flex-col gap-2">
-              <Hint className="px-0 leading-relaxed">Cloud models need you signed in from the Ollama app’s menu. A 403 means Ollama doesn’t allow Scribe yet:</Hint>
+              <Hint className="px-0">Cloud models need you signed in from the Ollama app’s menu. A 403 means Ollama doesn’t allow Scribe yet:</Hint>
               <EnvironmentVariables className={cn("rounded-xl", subtle)} defaultShowValues>
                 <EnvironmentVariablesHeader className="px-3 py-2">
                   <EnvironmentVariablesTitle className="text-xs">Allow Scribe in Ollama</EnvironmentVariablesTitle>
@@ -312,10 +310,10 @@ export function AiTab(props: {
                   </EnvironmentVariable>
                 </EnvironmentVariablesContent>
               </EnvironmentVariables>
-              <Hint className="px-0 leading-relaxed">
-                On a Mac: <code className="break-all">launchctl setenv OLLAMA_ORIGINS chrome-extension://{chrome.runtime.id}</code>, then quit and reopen Ollama. Don’t use * here: it lets every website reach Ollama.
+              <Hint className="px-0">
+                On a Mac: <code>launchctl setenv OLLAMA_ORIGINS chrome-extension://{chrome.runtime.id}</code>, then quit and reopen Ollama. Don’t use * here: it lets every website reach Ollama.
               </Hint>
-              <GlassInput aria-label="Ollama address" className="h-9 rounded-xl border-white/15 bg-white/[0.05] font-mono text-xs" onChange={(e) => update({ ollamaUrl: e.target.value.trim() })} value={settings.ollamaUrl} />
+              <GlassInput aria-label="Ollama address" className="h-7 font-mono text-xs" onChange={(e) => update({ ollamaUrl: e.target.value.trim() })} value={settings.ollamaUrl} />
             </CollapsibleContent>
           </Collapsible>
           {testRow("ollama")}
@@ -325,18 +323,17 @@ export function AiTab(props: {
     if (ADVANCED_PROVIDERS.includes(id)) return keySetup(id);
     if (!signedIn) return failure?.id === "chatgpt" ? <ProblemCard onRetry={() => void connectChatGpt()} problem={failure.error} /> : null;
     return (
-      <div className="flex flex-col gap-2.5">
-        <p className="flex flex-wrap items-center gap-x-1.5 text-xs leading-relaxed text-muted-foreground">
+      <div className="flex flex-col gap-1.5">
+        <p className="flex flex-wrap items-center gap-x-1.5 text-muted-foreground text-xs">
           <span className="truncate">Using ChatGPT plan · {settings.chatgptAccount}</span>
-          <button className="inline-flex items-center gap-1 text-foreground underline-offset-2 hover:underline" onClick={openUsage} type="button">
+          <button className="inline-flex items-center gap-0.5 text-foreground underline-offset-2 hover:underline" onClick={openUsage} type="button">
             Manage usage
             <ExternalLinkIcon className="size-3" />
           </button>
         </p>
         {gptModels.length > 0 && (
           <GlassSelect items={gptModels.map((m) => ({ value: m.id, label: m.name }))} onValueChange={(v) => v && setModel("chatgpt", String(v))} value={settings.models.chatgpt}>
-            <GlassSelectTrigger aria-label="ChatGPT model" className="h-10 w-full rounded-[14px] border-white/20 bg-white/[0.07] px-3 text-[13px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" size="sm">
-              <Logo className="size-6 shrink-0 text-teal-300" name="chatgpt" />
+            <GlassSelectTrigger aria-label="ChatGPT model" size="sm">
               <SelectValue />
             </GlassSelectTrigger>
             <GlassSelectContent>
@@ -348,11 +345,11 @@ export function AiTab(props: {
             </GlassSelectContent>
           </GlassSelect>
         )}
-        <div className="flex gap-2">
-          <GlassButton className="h-7 rounded-full border-white/15 bg-white/[0.06] px-3" disabled={busy !== null} onClick={() => runTest("chatgpt")} size="xs">
+        <div className="flex gap-1.5">
+          <GlassButton disabled={busy !== null} onClick={() => runTest("chatgpt")} size="xs">
             {busy === "chatgpt" ? "Working…" : "Test"}
           </GlassButton>
-          <GlassButton className="h-7 rounded-full px-3" disabled={busy !== null} glassVariant="subtle" onClick={() => void disconnectChatGpt()} size="xs">
+          <GlassButton disabled={busy !== null} glassVariant="subtle" onClick={() => void disconnectChatGpt()} size="xs">
             Sign out
           </GlassButton>
         </div>
@@ -360,168 +357,119 @@ export function AiTab(props: {
     );
   };
 
-  /** The provider's problem, if any, then its setup: shown for the chosen one, or one opened after a failure. */
-  const details = (p: ProviderId) => (
-    <>
-      {failure?.id === p && p !== "chatgpt" ? (
-        <ProblemCard onRetry={() => void runTest(p)} problem={failure.error} />
-      ) : (
-        status[p] && !status[p]!.ok && p !== "chatgpt" && <ProblemCard onRetry={() => void runTest(p)} problem={status[p]!.detail} />
-      )}
-      {failure?.id === "chatgpt" && p === "chatgpt" && signedIn && <ProblemCard onRetry={() => void runTest(p)} problem={failure.error} />}
-      {setup(p)}
-    </>
-  );
-
-  /** "Use your own API key" rows: logo, name, one line, an action; setup underneath when open. */
   const row = (p: ProviderId) => {
     const selected = settings.provider === p;
     const expanded = selected || open === p;
     const st = status[p];
     return (
-      <GlassItem className={cn("gap-3 rounded-[18px] border-white/[0.13] bg-white/[0.045] px-3 py-3", selected && "neon neon-soft border-transparent bg-white/[0.07]")} glassVariant="subtle" key={p} size="sm">
-        <ItemMedia className={cn(TILE, "border-white/[0.12] bg-white/[0.04]")}>
+      <GlassItem
+        className={cn("gap-3 px-3", selected && "bg-white/55 dark:bg-white/[0.12]")}
+        glassVariant="subtle"
+        key={p}
+        size="sm"
+      >
+        <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10">
           <Logo name={PROVIDER_LOGO[p]} />
         </ItemMedia>
         <ItemContent className="min-w-0">
-          <ItemTitle className="flex items-center gap-1.5 text-[13px]">
+          <ItemTitle className="flex items-center gap-1.5">
             {PROVIDER_LABEL[p]}
-            {st && <span aria-label={st.ok ? "Ready" : "Not ready"} className={cn("size-1.5 rounded-full", st.ok ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" : "bg-muted-foreground/40")} title={st.ok ? "Ready" : st.detail} />}
+            {st && <span aria-label={st.ok ? "Ready" : "Not ready"} className={cn("size-1.5 rounded-full", st.ok ? "bg-green-500" : "bg-muted-foreground/40")} title={st.ok ? "Ready" : st.detail} />}
           </ItemTitle>
-          <ItemDescription className="truncate text-xs">{BLURB[p]}</ItemDescription>
+          <ItemDescription className="truncate">
+            {BLURB[p]}
+          </ItemDescription>
         </ItemContent>
         <ItemActions>{action(p)}</ItemActions>
-        {expanded && <div className="flex min-w-0 basis-full flex-col gap-2 border-t border-white/10 pt-3">{details(p)}</div>}
+        {expanded && (
+          <div className="basis-full pl-11">
+            {failure?.id === p && p !== "chatgpt" ? (
+              <ProblemCard className="mb-2" onRetry={() => void runTest(p)} problem={failure.error} />
+            ) : (
+              st && !st.ok && p !== "chatgpt" && <ProblemCard className="mb-2" onRetry={() => void runTest(p)} problem={st.detail} />
+            )}
+            {failure?.id === "chatgpt" && p === "chatgpt" && signedIn && <ProblemCard className="mb-2" onRetry={() => void runTest(p)} problem={failure.error} />}
+            {setup(p)}
+          </div>
+        )}
       </GlassItem>
     );
   };
 
-  const MAIN = ["chatgpt", "ollama", "chrome"] as const;
-  const CARD_LINE: Record<(typeof MAIN)[number], string> = {
-    chatgpt: signedIn ? "Your plan" : "Plus or Pro",
-    ollama: "Free · cloud models",
-    chrome: "On this device",
-  };
-  const CARD_NAME: Record<(typeof MAIN)[number], string> = { chatgpt: "ChatGPT", ollama: "Ollama", chrome: "Chrome AI" };
-  const pick = (p: (typeof MAIN)[number]) => (p === "chatgpt" && !signedIn ? void connectChatGpt() : choose(p));
-  const shown = MAIN.find((p) => open === p) ?? MAIN.find((p) => settings.provider === p) ?? null;
-
   return (
-    <section aria-label="AI model" className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 pt-1 pb-5 text-[13px] text-[#f4f3fa]">
-      <div className="grid shrink-0 grid-cols-3 gap-2">
-        {MAIN.map((p) => {
-          const selected = settings.provider === p;
-          const st = status[p];
-          return (
-            <button
-              aria-pressed={selected}
-              className={cn(
-                "relative flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-2 rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,rgba(116,108,160,0.14),rgba(15,20,29,0.55)_55%,rgba(92,105,144,0.16))] px-2 pt-3.5 pb-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl transition-colors hover:bg-white/[0.09] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400 disabled:opacity-50",
-                selected && "neon border-transparent bg-[linear-gradient(135deg,rgba(79,94,197,0.22),rgba(7,28,35,0.75)_50%,rgba(124,77,143,0.2))] shadow-[0_0_24px_-8px_rgba(168,85,247,0.6)]"
-              )}
-              disabled={busy !== null && busy !== p}
-              key={p}
-              onClick={() => pick(p)}
-              type="button"
-            >
-              {st?.ok && <span aria-label="Ready" className="absolute top-2.5 right-2.5 size-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.9)]" />}
-              <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-[14px]", p === "chatgpt" && "text-teal-300")}>
-                <Logo className="size-10" name={PROVIDER_LOGO[p]} />
-              </span>
-              <span className="text-[14px] leading-5 font-semibold tracking-[-0.025em]">{CARD_NAME[p]}</span>
-              {p === "chatgpt" && !signedIn ? (
-                <span className="neon neon-teal flex min-h-7 w-full items-center justify-center rounded-full bg-teal-400/[0.12] px-2 py-1 text-[11px] font-medium text-white">{busy === "chatgpt" ? "Signing in…" : "Sign in"}</span>
-              ) : (
-                <span className="flex min-h-7 w-full items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.035] px-1 py-1 text-[11px] leading-tight text-[#bbbcca]">{CARD_LINE[p]}</span>
-              )}
+    <section aria-label="AI model" className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
+      <div className="flex flex-col gap-2">
+        <SectionLabel>Your subscription</SectionLabel>
+        {row("chatgpt")}
+        <SectionLabel>Free</SectionLabel>
+        {(["ollama", "chrome"] as const).map(row)}
+        <Collapsible defaultOpen={ADVANCED_PROVIDERS.includes(settings.provider)}>
+          <CollapsibleTrigger asChild>
+            <button className="group flex w-full items-center gap-1 px-1 pt-1 font-medium text-foreground/80 text-xs uppercase tracking-wide" type="button">
+              Use your own API key
+              <ChevronDownIcon className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
             </button>
-          );
-        })}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2 flex flex-col gap-2">
+            <Hint>For developers and teams. Keys stay in this browser and go only to that service. Scribe asks Chrome for each service's permission when you first use it.</Hint>
+            {ADVANCED_PROVIDERS.map(row)}
+          </CollapsibleContent>
+        </Collapsible>
+        <p className={cn("flex items-start gap-1.5 px-1 text-xs", offDevice ? "text-amber-800 dark:text-amber-200" : "text-green-800 dark:text-green-200")}>
+          <ShieldCheckIcon className="mt-0.5 size-3.5 shrink-0" />
+          {offDevice
+            ? settings.listenMode === "smart"
+              ? "Smart mode sends every line, plus an outline of your files, to this model’s servers."
+              : "Requests and an outline of your files go to this model’s servers."
+            : "Nothing leaves this computer except the edits."}
+        </p>
       </div>
 
-      {shown && (shown !== "chatgpt" || signedIn || failure?.id === "chatgpt") && (
-        <div className="flex shrink-0 flex-col gap-3 rounded-[18px] border border-white/20 bg-[linear-gradient(115deg,rgba(69,105,134,0.17),rgba(24,25,37,0.6)_50%,rgba(116,84,137,0.2))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl">
-          <div className="flex items-center gap-2 text-xs text-[#bbbcca]">
-            <Logo className="size-4" name={PROVIDER_LOGO[shown]} />
-            {PROVIDER_LABEL[shown]}
-            {settings.provider === shown && (
-              <span className="ml-auto inline-flex items-center gap-1 text-foreground">
-                <CheckIcon className="size-3.5 text-green-400" />
-                In use
-              </span>
-            )}
-          </div>
-          {details(shown)}
-        </div>
-      )}
-
-      <Collapsible className="shrink-0" defaultOpen={ADVANCED_PROVIDERS.includes(settings.provider)}>
-        <CollapsibleTrigger asChild>
-          <button className="group flex min-h-11 w-full items-center gap-3 rounded-[17px] border border-white/20 bg-[linear-gradient(115deg,rgba(111,94,158,0.17),rgba(25,29,37,0.5)_55%,rgba(124,106,74,0.13))] px-4 py-3 text-left text-[13px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl transition-colors hover:bg-white/[0.08] focus-visible:outline-2 focus-visible:outline-violet-400" type="button">
-            <KeyRoundIcon className="size-5 shrink-0 text-[#c3bfd9]" />
-            <span className="flex-1 font-medium">Use your own API key</span>
-            <ChevronDownIcon className="size-4 text-[#bbbcca] transition-transform group-data-[state=open]:rotate-180" />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-2.5 flex flex-col gap-2">
-          <Hint className="px-2 leading-relaxed">For developers and teams. Keys stay in this browser and go only to that service. Chrome asks for each service’s permission when you first use it.</Hint>
-          {ADVANCED_PROVIDERS.map(row)}
-        </CollapsibleContent>
-      </Collapsible>
-
-      <p className={cn("flex shrink-0 items-start gap-2 px-2 py-1 text-[11px] leading-relaxed", offDevice ? "text-amber-200/90" : "text-green-200/90")}>
-        <ShieldCheckIcon className="mt-0.5 size-3.5 shrink-0" />
-        {offDevice
-          ? settings.listenMode === "smart"
-            ? "Smart mode sends every line, plus an outline of your files, to this model’s servers."
-            : "Requests and an outline of your files go to this model’s servers."
-          : "Nothing leaves this computer except the edits."}
-      </p>
-
-      <div className="flex shrink-0 flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <SectionLabel>Listening and seeing</SectionLabel>
-        <div className="rounded-[19px] border border-white/20 bg-[linear-gradient(120deg,rgba(79,91,160,0.18),rgba(14,39,46,0.35)_48%,rgba(116,87,66,0.17))] px-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl">
-          <GlassItem className="gap-3 rounded-none border-0 bg-transparent px-0 py-3.5 shadow-none backdrop-blur-none" glassVariant="subtle" size="sm">
-            <ItemMedia className="flex size-10 shrink-0 items-center justify-center text-[#ddd8f5]">
-              <MicIcon className="size-6" />
-            </ItemMedia>
-            <ItemContent className="min-w-0 gap-1.5">
-              <ItemTitle className="text-[13px] font-medium text-[#c3c1d1]">Wake word</ItemTitle>
-              <GlassInput aria-label="Wake word" className="h-10 w-full rounded-[13px] border-white/20 bg-white/[0.06] px-3 text-[14px] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" onChange={(e) => update({ wakeWord: e.target.value.replace(/\s+/g, "") || "Scribe" })} value={settings.wakeWord} />
-              <ItemDescription className="truncate text-xs text-[#b5b2c9]">“{settings.wakeWord}, add …”</ItemDescription>
-            </ItemContent>
-          </GlassItem>
-          <GlassItem className="gap-3 rounded-none border-0 border-t border-white/20 bg-transparent px-0 py-3.5 shadow-none backdrop-blur-none" glassVariant="subtle" size="sm">
-            <ItemMedia className="flex size-10 shrink-0 items-center justify-center text-[#ddddea]">
-              <EyeIcon className="size-6" />
-            </ItemMedia>
-            <ItemContent className="min-w-0 gap-1">
-              <ItemTitle className="text-[13px] font-medium">Reads the shared screen</ItemTitle>
-              <ItemDescription className="truncate text-xs text-[#b5b2c9]">One picture per request</ItemDescription>
-            </ItemContent>
-            <div className="min-w-0 basis-full">
-              <GlassSelect
-                items={ollamaChoices.map((m) => ({ value: m, label: m }))}
-                onValueChange={(v) => v && update({ visionModels: { ...settings.visionModels, ollama: String(v) } })}
-                value={visionModelName("ollama", settings)}
-              >
-                <GlassSelectTrigger aria-label="Ollama model for the shared screen" className="h-10 w-full rounded-[13px] border-white/20 bg-white/[0.06] px-3 text-[13px]" size="sm">
-                  <Logo className="size-4" name="ollama" />
-                  <SelectValue />
-                </GlassSelectTrigger>
-                <GlassSelectContent>
-                  {ollamaChoices.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
-                    </SelectItem>
-                  ))}
-                </GlassSelectContent>
-              </GlassSelect>
-              <Hint className="px-0 pt-2 text-[11px] leading-relaxed">Ollama uses this one. ChatGPT and the built-in model see pictures themselves.</Hint>
-            </div>
-          </GlassItem>
-        </div>
+        <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
+          <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10">
+            <MicIcon className="size-4" />
+          </ItemMedia>
+          <ItemContent className="min-w-0">
+            <ItemTitle>Wake word</ItemTitle>
+            <ItemDescription className="truncate">“{settings.wakeWord}, add …”</ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <GlassInput aria-label="Wake word" className="h-7 w-24 text-xs" onChange={(e) => update({ wakeWord: e.target.value.replace(/\s+/g, "") || "Scribe" })} value={settings.wakeWord} />
+          </ItemActions>
+        </GlassItem>
+        <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
+          <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10">
+            <MonitorUpIcon className="size-4" />
+          </ItemMedia>
+          <ItemContent className="min-w-0">
+            <ItemTitle>Reads the shared screen</ItemTitle>
+            <ItemDescription className="truncate">One picture per request</ItemDescription>
+          </ItemContent>
+          <div className="basis-full pl-11">
+            <GlassSelect
+              items={ollamaChoices.map((m) => ({ value: m, label: m }))}
+              onValueChange={(v) => v && update({ visionModels: { ...settings.visionModels, ollama: String(v) } })}
+              value={visionModelName("ollama", settings)}
+            >
+              <GlassSelectTrigger aria-label="Ollama model for the shared screen" size="sm">
+                <Logo className="size-4" name="ollama" />
+                <SelectValue />
+              </GlassSelectTrigger>
+              <GlassSelectContent>
+                {ollamaChoices.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </GlassSelectContent>
+            </GlassSelect>
+            <Hint className="px-0 pt-1">Ollama uses this one. ChatGPT and the built-in model see pictures themselves. Screenshots and recordings don’t use the AI.</Hint>
+          </div>
+        </GlassItem>
       </div>
+
     </section>
   );
 }

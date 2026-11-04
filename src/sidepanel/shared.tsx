@@ -10,8 +10,7 @@ import { GlassRadioGroupItem } from "@/components/glasscn/ui/glasscn/glass-radio
 /** glasscn's own surface style, applied to AI Elements containers. */
 export const subtle = glassVariantStyles.subtle;
 
-// Initials sit on a gradient in the logo's family of colours.
-const COLORS = ["from-violet-500 to-indigo-600", "from-sky-500 to-blue-700", "from-teal-400 to-cyan-700", "from-amber-400 to-orange-600", "from-fuchsia-500 to-violet-700", "from-emerald-400 to-teal-700", "from-rose-400 to-pink-700", "from-indigo-400 to-purple-700"];
+const COLORS = ["bg-blue-600", "bg-orange-700", "bg-teal-700", "bg-violet-600", "bg-rose-700", "bg-emerald-700", "bg-sky-700", "bg-amber-700"];
 
 export function initials(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -25,32 +24,18 @@ export function colorFor(name: string) {
 }
 
 /** The speaker's Google photo when Meet shows one, otherwise their initials. */
-export function SpeakerAvatar({ name, src, className, large }: { name: string; src?: string; className?: string; large?: boolean }) {
+export function SpeakerAvatar({ name, src, className }: { name: string; src?: string; className?: string }) {
   return (
     <Avatar className={cn("size-5", className)}>
       {src && <AvatarImage alt="" referrerPolicy="no-referrer" src={src} />}
-      <AvatarFallback className={cn("bg-gradient-to-br font-semibold text-white", large ? "text-base" : "text-xs", colorFor(name))}>{initials(name)}</AvatarFallback>
+      <AvatarFallback className={cn("text-[10px] font-medium text-white", colorFor(name))}>{initials(name)}</AvatarFallback>
     </Avatar>
   );
 }
 
-export function SectionLabel({ children, end }: { children: ReactNode; end?: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2 px-1">
-      <h3 className="font-medium text-[13px] text-foreground/90">{children}</h3>
-      {end && <span className="text-muted-foreground text-xs">{end}</span>}
-    </div>
-  );
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return <h3 className="px-1 font-medium text-foreground/80 text-xs uppercase tracking-wide">{children}</h3>;
 }
-
-/** A row of a list: dark glass, rounded, roomy. */
-export const ROW = "gap-3 rounded-2xl border-white/[0.09] bg-white/[0.045] px-3 py-2.5";
-
-/** The square glass tile every logo and icon sits in, so rows line up. */
-export const TILE = "flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.07] [&_svg:not([class*='size-'])]:size-5";
-
-/** The main action of a row ("Add", "Choose vault"): a glass pill with the logo's neon edge. */
-export const ADD_BUTTON = "neon neon-soft h-7 rounded-full px-3";
 
 export function Hint({ children, className }: { children: ReactNode; className?: string }) {
   return <p className={cn("px-1 text-muted-foreground text-xs", className)}>{children}</p>;
