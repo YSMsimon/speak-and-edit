@@ -64,8 +64,8 @@ export function ObsidianSection(props: { connected: FileRef[]; meetingTitle: str
 
   return (
     <div className="flex flex-col gap-2">
-      <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
-        <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10">
+      <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
+        <ItemMedia className="[&_svg]:!size-7">
           <Logo name="obsidian" />
         </ItemMedia>
         <ItemContent className="min-w-0">

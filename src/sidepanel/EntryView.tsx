@@ -123,7 +123,7 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
         <Tool className={cn("mb-0 rounded-xl", subtle)} defaultOpen={!ok || a.done.length > 1}>
           <ToolHeader
             className="p-2.5 text-left"
-            icon={<SlidersHorizontalIcon className="size-4 text-muted-foreground" />}
+            icon={<SlidersHorizontalIcon className="size-6 text-muted-foreground" />}
             state={ok ? "output-available" : "output-error"}
             title={`Scribe: ${a.done[0] ?? "couldn’t change that"}`}
             type="tool-set_scribe"
@@ -183,7 +183,7 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
       const p = a.proposal;
       return (
         <Tool className={cn("mb-0 rounded-xl", subtle)} defaultOpen>
-          <ToolHeader className="p-2.5 text-left" icon={<Logo className="size-4" name={FILE_LOGO[p.file.kind]} />} state="approval-requested" title={proposalTitle(p)} type="tool-scribe" />
+          <ToolHeader className="p-2.5 text-left" icon={<Logo className="size-6" name={FILE_LOGO[p.file.kind]} />} state="approval-requested" title={proposalTitle(p)} type="tool-scribe" />
           <ToolContent className="space-y-3 p-3">
             <MediaPreview p={p} />
             <ToolInput input={{ file: p.file.title, ...describeWrite(p.write) }} />
@@ -225,7 +225,7 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
                 : "Added";
       return (
         <Tool className={cn("mb-0 rounded-xl", subtle)} defaultOpen={waiting}>
-          <ToolHeader className="p-2.5 text-left" icon={<Logo className="size-4" name={FILE_LOGO[p.file.kind]} />} state={state} title={`${verb}: ${p.file.title} › ${r.where}`} type="tool-scribe" />
+          <ToolHeader className="p-2.5 text-left" icon={<Logo className="size-6" name={FILE_LOGO[p.file.kind]} />} state={state} title={`${verb}: ${p.file.title} › ${r.where}`} type="tool-scribe" />
           <ToolContent className="space-y-3 p-3">
             <MediaPreview p={p} />
             <ToolInput input={{ ...(r.remove ? { remove: r.remove } : {}), add: r.add, requested_by: `${p.speaker}, ${timeOf(p.at).slice(0, 5)}` }} />
@@ -270,11 +270,11 @@ export function EntryView({ entry, engine, me, avatar }: { entry: Entry; engine:
       <Message from={mine ? "user" : "assistant"}>
         <div className={cn("flex items-center gap-2 text-muted-foreground text-xs", mine && "justify-end")}>
           <SpeakerAvatar name={entry.speaker} src={avatar} />
-          <span className="font-medium text-foreground">{entry.speaker}</span>
+          <span className="font-medium text-foreground text-sm">{entry.speaker}</span>
           <time className="tabular-nums">{timeOf(entry.at)}</time>
           {entry.typed && <span>typed</span>}
         </div>
-        <MessageContent>
+        <MessageContent className="text-[15px]">
           <p className={cn(wake && "font-medium")}>{entry.text}</p>
         </MessageContent>
       </Message>

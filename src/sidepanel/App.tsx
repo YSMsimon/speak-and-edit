@@ -149,8 +149,8 @@ export function App() {
         <GlassCard className="glass-scope h-full w-full gap-0 overflow-hidden rounded-[24px] py-0 text-foreground dark:bg-black/60" glassVariant="frosted">
           <header className="flex items-start justify-between gap-2 px-4 pt-4">
             <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex items-center gap-2 font-semibold">
-                <img alt="" className="size-5 shrink-0" src={logo} />
+              <div className="flex items-center gap-2 font-semibold text-[17px]">
+                <img alt="" className="size-8 shrink-0" src={logo} />
                 Speak and Edit
                 <BuildStamp />
                 <GlassBadge className="gap-1.5" glassVariant="liquid">
@@ -164,7 +164,7 @@ export function App() {
                   </GlassBadge>
                 )}
               </div>
-              <div className="flex min-w-0 items-center gap-1.5 font-medium">
+              <div className="flex min-w-0 items-center gap-1.5 font-medium text-[15px]">
                 <Logo className="size-4" name="meet" />
                 <span className="truncate">{meet?.title ?? "Google Meet"}</span>
               </div>
@@ -196,7 +196,7 @@ export function App() {
                       aria-label={meet?.paused ? "Resume listening" : "Pause listening"}
                       disabled={!meetTabId || meet?.status !== "listening"}
                       onClick={() => void setPaused(!meet?.paused)}
-                      size="sm"
+                      size="md"
                     />
                   }
                 >
@@ -209,16 +209,16 @@ export function App() {
 
           <div className="flex justify-center px-3 pt-3 pb-2">
             <GlassToggleGroup aria-label="Scribe sections" onValueChange={(v) => setTab(v as Tab)} value={tab}>
-              <GlassToggleGroupItem className="px-3 py-1.5" value="live">
+              <GlassToggleGroupItem className="px-4 py-2 text-[15px]" value="live">
                 Live
               </GlassToggleGroupItem>
-              <GlassToggleGroupItem className="px-3 py-1.5" value="outputs">
+              <GlassToggleGroupItem className="px-4 py-2 text-[15px]" value="outputs">
                 Outputs
               </GlassToggleGroupItem>
-              <GlassToggleGroupItem className="px-3 py-1.5" value="ai">
+              <GlassToggleGroupItem className="px-4 py-2 text-[15px]" value="ai">
                 AI model
               </GlassToggleGroupItem>
-              <GlassToggleGroupItem className="px-3 py-1.5" value="people">
+              <GlassToggleGroupItem className="px-4 py-2 text-[15px]" value="people">
                 People
               </GlassToggleGroupItem>
             </GlassToggleGroup>

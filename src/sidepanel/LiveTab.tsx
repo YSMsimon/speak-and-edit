@@ -80,8 +80,8 @@ function FooterPicker<T extends string>(props: { label: string; value: T; choice
   const Icon = current.icon;
   return (
     <PromptInputActionMenu>
-      <PromptInputActionMenuTrigger aria-label={`${label}: ${current.title}`} className="gap-1.5 px-2 text-muted-foreground text-xs" size="sm">
-        <Icon className="size-3.5" />
+      <PromptInputActionMenuTrigger aria-label={`${label}: ${current.title}`} className="gap-1.5 px-2.5 text-muted-foreground text-sm" size="sm">
+        <Icon className="size-4" />
         {current.short ?? current.title}
       </PromptInputActionMenuTrigger>
       <PromptInputActionMenuContent className={cn(MENU_GLASS, "w-64 p-1.5")} collisionPadding={8} side="top" sticky="always">
@@ -153,7 +153,7 @@ export function LiveTab(props: {
   return (
     <section aria-label="Live" className="flex min-h-0 flex-1 flex-col gap-2.5 px-3 pb-3">
       {inCall && (
-        <div className={cn("flex flex-col gap-1.5 rounded-xl px-2.5 py-2 text-xs", subtle)}>
+        <div className={cn("flex flex-col gap-2 rounded-xl px-3 py-2.5 text-[13px]", subtle)}>
           <div className="flex items-center gap-2">
             <MonitorUpIcon className="size-3.5 shrink-0" />
             <span className={cn("min-w-0 flex-1", !screen && "text-muted-foreground")}>

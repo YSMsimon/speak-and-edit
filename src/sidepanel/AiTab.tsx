@@ -363,12 +363,12 @@ export function AiTab(props: {
     const st = status[p];
     return (
       <GlassItem
-        className={cn("gap-3 px-3", selected && "bg-white/55 dark:bg-white/[0.12]")}
+        className={cn("gap-3 px-3 py-3", selected && "bg-white/55 dark:bg-white/[0.12]")}
         glassVariant="subtle"
         key={p}
         size="sm"
       >
-        <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10">
+        <ItemMedia className="[&_svg]:!size-7">
           <Logo name={PROVIDER_LOGO[p]} />
         </ItemMedia>
         <ItemContent className="min-w-0">
@@ -427,9 +427,9 @@ export function AiTab(props: {
 
       <div className="flex flex-col gap-2">
         <SectionLabel>Listening and seeing</SectionLabel>
-        <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
-          <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10">
-            <MicIcon className="size-4" />
+        <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
+          <ItemMedia className="[&_svg]:!size-6">
+            <MicIcon />
           </ItemMedia>
           <ItemContent className="min-w-0">
             <ItemTitle>Wake word</ItemTitle>
@@ -439,9 +439,9 @@ export function AiTab(props: {
             <GlassInput aria-label="Wake word" className="h-7 w-24 text-xs" onChange={(e) => update({ wakeWord: e.target.value.replace(/\s+/g, "") || "Scribe" })} value={settings.wakeWord} />
           </ItemActions>
         </GlassItem>
-        <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
-          <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10">
-            <MonitorUpIcon className="size-4" />
+        <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
+          <ItemMedia className="[&_svg]:!size-6">
+            <MonitorUpIcon />
           </ItemMedia>
           <ItemContent className="min-w-0">
             <ItemTitle>Reads the shared screen</ItemTitle>

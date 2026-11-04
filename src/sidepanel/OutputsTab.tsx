@@ -39,7 +39,8 @@ import { ChoiceRow, Hint, SectionLabel } from "./shared";
 
 /** The square tile every logo and icon sits in, so rows line up. */
 function Tile({ children }: { children: React.ReactNode }) {
-  return <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10 [&_svg:not([class*='size-'])]:size-4">{children}</ItemMedia>;
+  // The logo sits bare, a size up: no box behind it (his call, 2026-11-04).
+  return <ItemMedia className="[&_svg]:!size-7">{children}</ItemMedia>;
 }
 
 interface OpenTab {
@@ -147,7 +148,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
 
   /** A compact row: logo or icon, a title, at most one short line, and a control. */
   const pickRow = (icon: React.ReactNode, title: string, line: string, control: React.ReactNode, after?: React.ReactNode) => (
-    <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
+    <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
       <Tile>{icon}</Tile>
       <ItemContent className="min-w-0">
         <ItemTitle>{title}</ItemTitle>
@@ -219,7 +220,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
                 return (
                   <div key={f.id}>
                     {i > 0 && <GlassSeparator className="mx-3" glassVariant="subtle" />}
-                    <GlassItem className="items-start gap-3 rounded-none border-0 px-3 shadow-none" glassVariant="clear" size="sm">
+                    <GlassItem className="items-start gap-3 rounded-none border-0 px-3 py-3 shadow-none" glassVariant="clear" size="sm">
                       <Tile>
                         <Logo name={FILE_LOGO[f.kind]} />
                       </Tile>
@@ -263,7 +264,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
           <>
             <SectionLabel>Open in this window</SectionLabel>
             {openTabs.map((t) => (
-              <GlassItem className="gap-3 px-3" glassVariant="subtle" key={t.id} size="sm">
+              <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" key={t.id} size="sm">
                 <Tile>
                   <Logo name={FILE_LOGO[t.kind]} />
                 </Tile>
@@ -287,7 +288,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
         <OverleafSection connected={settings.files} onAdd={addLocal} />
 
         {googleReady && (
-          <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
+          <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
             <Tile>
               <Logo name="google" />
             </Tile>
@@ -344,7 +345,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
 
       <div className="flex flex-col gap-2">
         <SectionLabel>Also</SectionLabel>
-        <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
+        <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
           <Tile>
             <MessageSquareQuoteIcon />
           </Tile>

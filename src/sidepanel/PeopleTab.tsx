@@ -52,9 +52,9 @@ export function PeopleTab(props: { state: EngineState; settings: Settings; updat
             {names.map((name, i) => (
               <div key={name}>
                 {i > 0 && <GlassSeparator className="mx-3" glassVariant="subtle" />}
-                <GlassItem className="rounded-none border-0 px-3 shadow-none" glassVariant="clear" size="sm">
+                <GlassItem className="rounded-none border-0 px-3 py-3 shadow-none" glassVariant="clear" size="sm">
                   <ItemMedia>
-                    <SpeakerAvatar className="size-8" name={name} src={state.avatars[name]} />
+                    <SpeakerAvatar className="size-10" name={name} src={state.avatars[name]} />
                   </ItemMedia>
                   <ItemContent>
                     <ItemTitle>{name}</ItemTitle>
@@ -70,7 +70,7 @@ export function PeopleTab(props: { state: EngineState; settings: Settings; updat
         ) : (
           <Hint>Nobody has spoken yet.</Hint>
         )}
-        <GlassItem glassVariant="subtle" size="sm">
+        <GlassItem className="py-3" glassVariant="subtle" size="sm">
           <ItemContent>
             <ItemTitle>Anyone new</ItemTitle>
             <ItemDescription>People not listed above</ItemDescription>

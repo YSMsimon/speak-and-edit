@@ -41,8 +41,8 @@ export function OverleafSection(props: { connected: FileRef[]; onAdd: (f: FileRe
     });
 
   return (
-    <GlassItem className="gap-3 px-3" glassVariant="subtle" size="sm">
-      <ItemMedia className="size-8 rounded-lg bg-white/70 dark:bg-white/10">
+    <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
+      <ItemMedia className="[&_svg]:!size-7">
         <Logo name="overleaf" />
       </ItemMedia>
       <ItemContent className="min-w-0">

@@ -26,9 +26,9 @@ export function colorFor(name: string) {
 /** The speaker's Google photo when Meet shows one, otherwise their initials. */
 export function SpeakerAvatar({ name, src, className }: { name: string; src?: string; className?: string }) {
   return (
-    <Avatar className={cn("size-5", className)}>
+    <Avatar className={cn("size-6", className)}>
       {src && <AvatarImage alt="" referrerPolicy="no-referrer" src={src} />}
-      <AvatarFallback className={cn("text-[10px] font-medium text-white", colorFor(name))}>{initials(name)}</AvatarFallback>
+      <AvatarFallback className={cn("text-[11px] font-medium text-white", colorFor(name))}>{initials(name)}</AvatarFallback>
     </Avatar>
   );
 }
