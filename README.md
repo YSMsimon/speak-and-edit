@@ -4,14 +4,7 @@ An open-source Chrome extension for Google Meet. Say an edit during the call ("S
 
 "Scribe" is what you call it in the call: the wake word, which you can change. Smart mode doesn't need it at all.
 
-<p>
-  <img alt="Live: each request and the edit it made" src="docs/screens/live.jpg" width="24%">
-  <img alt="Outputs: the files it writes to" src="docs/screens/outputs.jpg" width="24%">
-  <img alt="AI: ChatGPT, Ollama or Chrome's built-in model" src="docs/screens/ai.jpg" width="24%">
-  <img alt="People: who can edit, who only comments" src="docs/screens/people.jpg" width="24%">
-</p>
-
-Status: v0.9, in development. Unit-tested, the prompts are checked against a real model, and an end-to-end smoke test runs against real Google files and an Overleaf project. Not yet used in a full live call. The screenshots use made-up people and files (`node scripts/screens.mjs` makes them).
+Status: v0.9, in development. Unit-tested, the prompts are checked against a real model, and an end-to-end smoke test runs against real Google files and an Overleaf project. Not yet used in a full live call.
 
 ## What works
 
