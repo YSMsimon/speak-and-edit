@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Scribe smoke test</title>
+    <style>
+      body { font: 13px/1.45 ui-monospace, Menlo, monospace; margin: 16px; background: #111; color: #eee; }
+      .pass { color: #6ee7a8; } .fail { color: #ff8a8a; } .soft { color: #f5c96b; } .info { color: #9cc3ff; }
+      button { font: inherit; padding: 6px 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Scribe smoke test</h1>
+    <p>Runs real requests through Scribe's engine, real AI and real Google APIs, on new files in a new Drive folder. Open with <code>?run=1</code> to start.</p>
+    <div id="auth"></div>
+    <pre id="log"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

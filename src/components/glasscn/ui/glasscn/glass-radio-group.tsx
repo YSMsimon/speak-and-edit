@@ -1,0 +1,23 @@
+"use client";
+
+import { FrostGlassVariantProp, glassVariantStyles } from "@/components/glasscn/lib/glass-variants";
+import { cn } from "@/components/glasscn/lib/utils";
+
+import { RadioGroupItem } from "../radio-group";
+
+type GlassRadioGroupItemProps = React.ComponentProps<typeof RadioGroupItem> & FrostGlassVariantProp;
+
+function GlassRadioGroupItem({ className, glassVariant = "liquid-refract", ...props }: GlassRadioGroupItemProps) {
+  const effectiveVariant = glassVariant === "liquid-refract" ? "subtle" : glassVariant;
+
+  return (
+    <RadioGroupItem
+      data-slot="glass-radio-group-item"
+      data-glass-variant={glassVariant}
+      className={cn(glassVariantStyles[effectiveVariant], className)}
+      {...props}
+    />
+  );
+}
+
+export { GlassRadioGroupItem };
