@@ -42,16 +42,10 @@ const STATUS: Record<string, { label: string; live?: boolean }> = {
   error: { label: "Problem" },
 };
 
-/** "v0.9 · 18:24": the version and when this build was made, so you can tell a reload took. */
-function BuildStamp() {
-  const version = chrome.runtime.getManifest().version.replace(/\.0$/, "");
+/** "v0.9 · 18:24" on the logo's tooltip: the version and build time, so you can tell a reload took. */
+function buildStamp(): string {
   const built = new Date(typeof __SCRIBE_BUILT__ === "string" ? __SCRIBE_BUILT__ : Date.now());
-  const time = built.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  return (
-    <span className="font-normal text-[11px] text-muted-foreground tabular-nums" title={`Speak and Edit ${chrome.runtime.getManifest().version}, built ${built.toLocaleString()}`}>
-      v{version} · {time}
-    </span>
-  );
+  return `Speak and Edit v${chrome.runtime.getManifest().version.replace(/\.0$/, "")} · built ${built.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 export function App() {
@@ -150,9 +144,8 @@ export function App() {
           <header className="flex items-start justify-between gap-2 px-4 pt-4">
             <div className="flex min-w-0 flex-col gap-1">
               <div className="flex items-center gap-2 font-semibold text-[17px]">
-                <img alt="" className="size-8 shrink-0" src={logo} />
+                <img alt="" className="size-8 shrink-0" src={logo} title={buildStamp()} />
                 Speak and Edit
-                <BuildStamp />
                 <GlassBadge className="gap-1.5" glassVariant="liquid">
                   <span className={cn("size-1.5 rounded-full", status.live ? "animate-pulse bg-red-500" : "bg-muted-foreground")} />
                   {status.label}
@@ -166,15 +159,14 @@ export function App() {
               </div>
               <div className="flex min-w-0 items-center gap-1.5 font-medium text-[15px]">
                 <Logo className="size-4" name="meet" />
-                <span className="truncate">{meet?.title ?? "Google Meet"}</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground text-xs">
+                <span className="min-w-0 shrink truncate">{meet?.title ?? "Google Meet"}</span>
                 {(() => {
                   const shown = focus ?? (settings.files.length === 1 ? settings.files[0]! : null);
                   const name = (id: string, fallback: string) => state.files[id]?.title ?? fallback;
                   return (
-                    <span className="inline-flex min-w-0 items-center gap-1">
-                      {shown ? <Logo className="size-3.5" name={FILE_LOGO[shown.kind]} /> : <FileTextIcon className="size-3" />}
+                    <span className="inline-flex min-w-0 shrink items-center gap-1.5 font-normal text-muted-foreground text-[13px]">
+                      <span aria-hidden="true">·</span>
+                      {shown ? <Logo className="size-3.5" name={FILE_LOGO[shown.kind]} /> : <FileTextIcon className="size-3.5" />}
                       <span className="truncate">
                         {settings.files.length === 0
                           ? "No file connected"
