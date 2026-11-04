@@ -53,9 +53,12 @@ function GlassSelectContent({ className, ...props }: React.ComponentProps<typeof
   return (
     <SelectContent
       data-slot="glass-select-content"
+      // local patch: open under the trigger instead of over it, solid dark glass, the trigger's width.
+      alignItemWithTrigger={false}
+      sideOffset={6}
       className={cn(
         variant !== "liquid-refract" && glassVariantStyles[variant],
-        "rounded-xl border border-white/30 bg-white/60 text-foreground shadow-2xl ring-1 ring-white/20 dark:border-white/10 dark:bg-black/55 dark:ring-white/10",
+        "min-w-[var(--anchor-width)] rounded-xl border border-white/30 bg-white/60 text-foreground shadow-2xl ring-1 ring-white/20 dark:border-white/10 dark:bg-black/85 dark:ring-white/10",
         "[&_[data-slot=select-item]:focus]:bg-white/70 [&_[data-slot=select-item]:focus]:text-black dark:[&_[data-slot=select-item]:focus]:bg-white/12 dark:[&_[data-slot=select-item]:focus]:text-white",
         className,
       )}
