@@ -13,7 +13,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import type { Engine, EngineState } from "@/lib/engine";
-import { fileUrl, KIND_LABEL, parseGoogleUrl, TAB_PATTERNS, titleFromTab, type FileKind, type FileRef } from "@/lib/files";
+import { fileUrl, parseGoogleUrl, TAB_PATTERNS, titleFromTab, type FileKind, type FileRef } from "@/lib/files";
 import { getGoogleToken, hasGoogleClient, signOutGoogle } from "@/lib/google";
 import { captureFile, focusFile, transcriptFile, type Settings } from "@/lib/settings";
 import { AlertDescription, AlertTitle } from "@/components/glasscn/ui/alert";
@@ -24,7 +24,6 @@ import { GlassAlert } from "@/components/glasscn/ui/glasscn/glass-alert";
 import { GlassBadge } from "@/components/glasscn/ui/glasscn/glass-badge";
 import { GlassButton } from "@/components/glasscn/ui/glasscn/glass-button";
 import { GlassCard } from "@/components/glasscn/ui/glasscn/glass-card";
-import { GlassInput } from "@/components/glasscn/ui/glasscn/glass-input";
 import { GlassItem } from "@/components/glasscn/ui/glasscn/glass-item";
 import { GlassSelect, GlassSelectContent, GlassSelectTrigger } from "@/components/glasscn/ui/glasscn/glass-select";
 import { GlassSeparator } from "@/components/glasscn/ui/glasscn/glass-separator";
@@ -80,7 +79,6 @@ function useOpenGoogleFiles() {
 
 export function OutputsTab(props: { engine: Engine; state: EngineState; settings: Settings; update: (p: Partial<Settings>) => void }) {
   const { engine, state, settings, update } = props;
-  const [link, setLink] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   // A failure stays inline under the files until dismissed or the next try; successes are toasts.
   const [problem, setProblem] = useState<{ error: unknown; retry?: () => void } | null>(null);
@@ -188,7 +186,21 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
   return (
     <section aria-label="Outputs" className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
       <div className="flex flex-col gap-2">
-        <SectionLabel>Files</SectionLabel>
+        <div className="flex items-center justify-between gap-2">
+          <SectionLabel>Files</SectionLabel>
+          {settings.files.length > 0 && (
+            <GlassButton
+              aria-label="Read files again"
+              disabled={busy !== null}
+              glassVariant="subtle"
+              onClick={() => run("refresh", async () => void (await engine.refreshFiles()))}
+              size="icon-xs"
+              title="Read files again"
+            >
+              <RefreshCwIcon className={cn(busy === "refresh" && "animate-spin")} />
+            </GlassButton>
+          )}
+        </div>
         {!googleReady && (
           <GlassAlert glassVariant="subtle">
             <AlertTitle>Google sign-in isn’t set up in this build</AlertTitle>
@@ -244,7 +256,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
             </ItemGroup>
           </GlassCard>
         ) : (
-          <Hint>No files yet. Add one that’s open, or paste a link.</Hint>
+          <Hint>No files yet. Open a Google Doc, Sheet or Slides file in this window and it appears here.</Hint>
         )}
 
         {googleReady && openTabs.length > 0 && (
@@ -269,41 +281,6 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
           </>
         )}
 
-        {googleReady && (
-          <form
-            className="flex gap-1.5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const parsed = parseGoogleUrl(link);
-              if (!parsed) return setProblem({ error: { severity: "info", title: "That isn’t a Google file link", body: "Paste the full link of a Google Doc, Sheet or Slides file.", fixes: [] } });
-              setLink("");
-              void addFile({ ...parsed, title: KIND_LABEL[parsed.kind] });
-            }}
-          >
-            <span className="flex shrink-0 items-center gap-1 px-1">
-              <Logo className="size-4" name="doc" />
-              <Logo className="size-4" name="sheet" />
-              <Logo className="size-4" name="slides" />
-            </span>
-            <GlassInput aria-label="Link to a Google Doc, Sheet or Slides file" className="h-8 text-xs" onChange={(e) => setLink(e.target.value)} placeholder="Paste a link" value={link} />
-            <GlassButton disabled={busy !== null || !link.trim()} size="sm" type="submit">
-              Add
-            </GlassButton>
-            {settings.files.length > 0 && (
-              <GlassButton
-                aria-label="Read files again"
-                disabled={busy !== null}
-                glassVariant="subtle"
-                onClick={() => run("refresh", async () => void (await engine.refreshFiles()))}
-                size="icon-sm"
-                title="Read files again"
-                type="button"
-              >
-                <RefreshCwIcon className={cn(busy === "refresh" && "animate-spin")} />
-              </GlassButton>
-            )}
-          </form>
-        )}
         {problem && <ProblemCard onDismiss={() => setProblem(null)} onRetry={problem.retry} problem={problem.error} />}
 
         <ObsidianSection connected={settings.files} meetingTitle={state.meet?.title ?? null} onAdd={addLocal} />
