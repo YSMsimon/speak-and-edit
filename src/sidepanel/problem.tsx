@@ -35,16 +35,16 @@ export function ProblemCard(props: {
   const Icon = ICON[p.severity];
   const fixes = p.fixes.filter((f) => f !== "retry" || props.onRetry);
   return (
-    <GlassAlert className={cn("rounded-xl px-3 py-2.5 text-xs", props.onDismiss && "pr-9", TONE[p.severity], props.className)} glassVariant="subtle" role={p.severity === "info" ? "status" : "alert"}>
+    <GlassAlert className={cn("rounded-xl px-3 py-2.5 text-sm", props.onDismiss && "pr-9", TONE[p.severity], props.className)} glassVariant="subtle" role={p.severity === "info" ? "status" : "alert"}>
       <Icon />
-      <AlertTitle className="text-xs">{p.title}</AlertTitle>
-      <AlertDescription className="flex flex-col gap-2 text-xs">
+      <AlertTitle className="text-sm">{p.title}</AlertTitle>
+      <AlertDescription className="flex flex-col gap-2 text-sm">
         {p.body && <span>{p.body}</span>}
         {props.children}
         {(fixes.length > 0 || p.detail) && (
           <div className="flex flex-wrap items-center gap-1.5">
             {fixes.map((f, i) => (
-              <GlassButton glassVariant={i === 0 ? "liquid-refract" : "subtle"} key={f} onClick={() => (f === "retry" ? props.onRetry?.() : runFix(f))} size="xs">
+              <GlassButton glassVariant={i === 0 ? "liquid-refract" : "subtle"} key={f} onClick={() => (f === "retry" ? props.onRetry?.() : runFix(f))} size="default">
                 {FIX_LABEL[f]}
               </GlassButton>
             ))}
@@ -55,7 +55,7 @@ export function ProblemCard(props: {
                   <ChevronDownIcon className="size-3 transition-transform group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <code className="mt-1 block select-text whitespace-pre-wrap break-words rounded-md bg-black/5 px-2 py-1.5 font-mono text-[11px] dark:bg-white/5">{p.detail}</code>
+                  <code className="mt-1 block select-text whitespace-pre-wrap break-words rounded-md bg-black/5 px-2 py-1.5 font-mono text-xs dark:bg-white/5">{p.detail}</code>
                 </CollapsibleContent>
               </Collapsible>
             )}
@@ -64,7 +64,7 @@ export function ProblemCard(props: {
       </AlertDescription>
       {props.onDismiss && (
         <AlertAction className="top-1.5 right-1.5">
-          <GlassButton aria-label="Dismiss" glassVariant="subtle" onClick={props.onDismiss} size="icon-xs">
+          <GlassButton aria-label="Dismiss" glassVariant="subtle" onClick={props.onDismiss} size="icon-sm">
             <XIcon />
           </GlassButton>
         </AlertAction>

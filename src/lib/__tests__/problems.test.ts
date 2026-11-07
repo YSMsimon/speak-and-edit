@@ -82,3 +82,10 @@ describe('ollamaFetch', () => {
     await expect(f('http://localhost:11434/v1/chat/completions')).rejects.toThrow('OLLAMA_ORIGINS');
   });
 });
+
+describe('Ollama plan limits', () => {
+  it('explains a cloud model that is not in the free plan', () => {
+    const p = describeProblem('this model is not included in your free usage, add usage credits to pay as you go: https://ollama.com/settings or upgrade for included usage');
+    expect(p.title).toBe('Not in Ollama’s free plan');
+  });
+});

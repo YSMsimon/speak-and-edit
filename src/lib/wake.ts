@@ -1,6 +1,10 @@
 // Detects whether a caption line is addressed to Scribe ("Scribe, add ...").
-// Meet's captions mangle names, so the match is fuzzy: small edit distance,
-// optional "hey"/"ok" in front, and trailing punctuation ignored.
+// Meet's captions mangle names, so there are two tiers, both on the first word (after "hey", "ok"…):
+//   sure   the wake word, or one or two letters off ("Scrib", "Scribes").
+//   maybe  a word that sounds like it ("Subscribe", "Describe", "Scrub"), by Double Metaphone codes.
+//          The engine asks the AI whether such a line really asks Scribe to do something.
+
+import { doubleMetaphone } from "double-metaphone";
 
 const FILLERS = new Set(["hey", "ok", "okay", "hi", "so", "um", "uh", "and", "yo", "alright"]);
 
@@ -26,10 +30,24 @@ export function isWakeToken(token: string, wakeWord: string): boolean {
   if (!t || !w) return false;
   if (t === w) return true;
   const allowed = w.length <= 4 ? 0 : w.length <= 6 ? 1 : 2;
-  if (editDistance(t, w) <= allowed) return true;
-  // Meet hears "Scribe!" as "Subscribe!". Accept a short prefix only when the word is used to address
-  // someone (followed by , ! . ? or :), so "subscribe to the newsletter" doesn't wake Scribe.
-  return t.length > w.length && t.length - w.length <= 3 && t.endsWith(w) && /[,!.?:]$/.test(token.trim());
+  return editDistance(t, w) <= allowed;
+}
+
+/**
+ * Sounds like the wake word: Meet writes "Scribe!" as "Subscribe!", "Describe", "Scrub". True when the
+ * word contains the wake word ("sub-scribe"), or its Double Metaphone code is the wake word's, starts with
+ * it ("Script") or ends with it ("Describe"). Only a hint: the AI decides whether the line was for Scribe.
+ */
+export function soundsLikeWake(token: string, wakeWord: string): boolean {
+  const t = normalize(token);
+  const w = normalize(wakeWord);
+  if (!t || !w || t === w) return false;
+  if (t.length > w.length && t.length - w.length <= 4 && (t.endsWith(w) || t.startsWith(w))) return true;
+  const wakeCodes = doubleMetaphone(w).filter(Boolean);
+  const codes = doubleMetaphone(t).filter(Boolean);
+  return codes.some((c) =>
+    wakeCodes.some((k) => c === k || (k.length >= 3 && ((c.endsWith(k) && c.length - k.length <= 2) || (c.startsWith(k) && c.length - k.length <= 1))))
+  );
 }
 
 export interface WakeResult {
@@ -38,6 +56,8 @@ export interface WakeResult {
   command: string;
   /** The line was only the wake word ("Scribe,"): the request is probably in the speaker's next line. */
   wakeOnly?: boolean;
+  /** The first word only sounds like the wake word: ask the AI whether this was for Scribe. */
+  maybe?: boolean;
 }
 
 export function detectWake(text: string, wakeWord: string): WakeResult {
@@ -45,13 +65,15 @@ export function detectWake(text: string, wakeWord: string): WakeResult {
   // Look at the first few words only: "Hey Scribe, ..." or "Scribe ...".
   for (let i = 0; i < Math.min(tokens.length, 3); i++) {
     const tok = tokens[i]!;
-    if (isWakeToken(tok, wakeWord)) {
+    const sure = isWakeToken(tok, wakeWord);
+    if (sure || soundsLikeWake(tok, wakeWord)) {
       const command = tokens
         .slice(i + 1)
         .join(" ")
         .replace(/^[\s,.:;!?-]+/, "")
         .trim();
-      return command.length > 0 ? { addressed: true, command } : { addressed: false, command: "", wakeOnly: true };
+      const maybe = sure ? {} : { maybe: true };
+      return command.length > 0 ? { addressed: sure, command, ...maybe } : { addressed: false, command: "", wakeOnly: true, ...maybe };
     }
     if (!FILLERS.has(normalize(tok))) break;
   }

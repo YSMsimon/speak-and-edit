@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkProvider, ensureAccess, modelFor, PROVIDER_ORIGINS, sendsOffDevice } from '../ai/providers';
+import { checkProvider, cloudName, ensureAccess, isOllamaCloud, listOllamaCloudModels, modelFor, PROVIDER_ORIGINS, sendsOffDevice } from '../ai/providers';
 import { describeProblem } from '../problems';
 import { ADVANCED_PROVIDERS, DEFAULT_SETTINGS, type Settings } from '../settings';
 
@@ -47,5 +47,28 @@ describe('Use your own API key', () => {
     expect(describeProblem('invalid x-api-key').title).toBe('That API key didn’t work');
     expect(describeProblem('Your credit balance is too low to access the Anthropic API.').title).toBe('No credit left on that account');
     expect(describeProblem('Scribe needs permission to reach Groq.').title).toBe('Chrome hasn’t allowed this service yet');
+  });
+});
+
+describe('Ollama cloud models', () => {
+  it('names them the way the Ollama app does', () => {
+    expect(cloudName('gpt-oss:120b')).toBe('gpt-oss:120b-cloud');
+    expect(cloudName('glm-5.3')).toBe('glm-5.3:cloud');
+    expect(isOllamaCloud('glm-5.3:cloud')).toBe(true);
+    expect(isOllamaCloud('gpt-oss:120b-cloud')).toBe(true);
+    expect(isOllamaCloud('llama3:8b')).toBe(false);
+  });
+
+  it('lists every chat model from ollama.com, marking the ones that can read pictures', async () => {
+    const fake = vi.fn(async () => new Response(JSON.stringify({ models: [
+      { name: 'gpt-oss:120b', capabilities: ['completion', 'tools'] },
+      { name: 'kimi-k3', capabilities: ['completion', 'vision'] },
+      { name: 'clef:27b', capabilities: ['decision', 'vision'] },
+    ] })));
+    const models = await listOllamaCloudModels(fake as unknown as typeof fetch);
+    expect(models).toEqual([
+      { name: 'gpt-oss:120b-cloud', vision: false },
+      { name: 'kimi-k3:cloud', vision: true },
+    ]);
   });
 });

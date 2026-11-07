@@ -6,6 +6,17 @@ import type { ComponentType, SVGProps } from "react";
 import AnthropicDark from "~icons/thesvg-color/anthropic-light";
 import AnthropicLight from "~icons/thesvg-color/anthropic-dark";
 import Groq from "~icons/thesvg-color/groq";
+// Model makers, for the Ollama model menus.
+import Deepseek from "~icons/thesvg-color/deepseek";
+import GemmaGoogle from "~icons/thesvg-color/gemma-google";
+import Kimi from "~icons/thesvg-color/kimi";
+import Minimax from "~icons/thesvg-color/minimax";
+import Mistral from "~icons/thesvg-color/mistral";
+import NvidiaNemotron from "~icons/thesvg-color/nvidia-nemotron";
+import QwenDark from "~icons/thesvg-color/qwen-dark";
+import QwenLight from "~icons/thesvg-color/qwen-light";
+import Xiaomi from "~icons/thesvg-color/xiaomi";
+import Zhipu from "~icons/thesvg-color/zhipu";
 import Hypothesis from "~icons/thesvg-color/hypothesis";
 import GoogleGemini from "~icons/selfhst/google-gemini";
 import OpenrouterDark from "~icons/selfhst/openrouter-dark";
@@ -63,6 +74,16 @@ export const MARKS = {
   hypothesis: Hypothesis,
   zoom: Zoom,
   teams: MicrosoftTeams,
+  deepseek: Deepseek,
+  gemma: GemmaGoogle,
+  kimi: Kimi,
+  minimax: Minimax,
+  mistral: Mistral,
+  nemotron: NvidiaNemotron,
+  qwen: { light: QwenLight, dark: QwenDark },
+  // Xiaomi's MiMo mark is black, which disappears on the dark panel; Xiaomi's own logo is orange.
+  mimo: Xiaomi,
+  glm: Zhipu,
 } satisfies Record<string, Mark>;
 
 export type LogoName = keyof typeof MARKS;
@@ -94,3 +115,21 @@ export const PROVIDER_LOGO: Record<ProviderId, LogoName> = {
   gemini: "gemini",
   groq: "groq",
 };
+
+/** The maker's logo for an Ollama model name ("kimi-k3:cloud" → Kimi); Ollama's own when there's none. */
+export function modelLogo(model: string): LogoName {
+  const m = model.toLowerCase();
+  const maker: [RegExp, LogoName][] = [
+    [/^gpt-oss/, "openai"],
+    [/^gemma/, "gemma"],
+    [/^deepseek/, "deepseek"],
+    [/^kimi/, "kimi"],
+    [/^glm/, "glm"],
+    [/^minimax/, "minimax"],
+    [/^mistral|^devstral|^magistral/, "mistral"],
+    [/^nemotron/, "nemotron"],
+    [/^qwen/, "qwen"],
+    [/^mimo/, "mimo"],
+  ];
+  return maker.find(([re]) => re.test(m))?.[1] ?? "ollama";
+}

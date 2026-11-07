@@ -2,18 +2,21 @@ import { useCallback, useEffect, useState } from "react";
 import {
   AnchorIcon,
   CrosshairIcon,
+  DownloadIcon,
   ExternalLinkIcon,
+  HistoryIcon,
   MessageSquareQuoteIcon,
   PlusIcon,
   RefreshCwIcon,
   ScrollTextIcon,
   ShieldCheckIcon,
+  Trash2Icon,
   XIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Engine, EngineState } from "@/lib/engine";
-import { fileUrl, parseGoogleUrl, TAB_PATTERNS, titleFromTab, type FileKind, type FileRef } from "@/lib/files";
+import { fileUrl, KIND_LABEL, parseGoogleUrl, TAB_PATTERNS, titleFromTab, type FileKind, type FileRef } from "@/lib/files";
 import { getGoogleToken, hasGoogleClient, signOutGoogle } from "@/lib/google";
 import { captureFile, focusFile, transcriptFile, type Settings } from "@/lib/settings";
 import { AlertDescription, AlertTitle } from "@/components/glasscn/ui/alert";
@@ -31,16 +34,18 @@ import { LiquidSwitch } from "@/components/glasscn/ui/glasscn/liquid-switch";
 
 import { FILE_LOGO, Logo } from "./logos";
 import { toast } from "sonner";
+import { deleteAllMeetings, listMeetings } from "@/lib/sessions";
+import { interactionLog } from "./log";
 
 import { ObsidianSection } from "./ObsidianSection";
 import { OverleafSection } from "./OverleafSection";
 import { ProblemCard } from "./problem";
-import { ChoiceRow, Hint, SectionLabel } from "./shared";
+import { ChoiceRow, Hint, PickList, SectionLabel } from "./shared";
 
 /** The square tile every logo and icon sits in, so rows line up. */
 function Tile({ children }: { children: React.ReactNode }) {
   // The logo sits bare, a size up: no box behind it (his call, 2026-11-04).
-  return <ItemMedia className="[&_svg]:!size-7">{children}</ItemMedia>;
+  return <ItemMedia className="[&_svg]:!size-9">{children}</ItemMedia>;
 }
 
 interface OpenTab {
@@ -84,6 +89,11 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
   // A failure stays inline under the files until dismissed or the next try; successes are toasts.
   const [problem, setProblem] = useState<{ error: unknown; retry?: () => void } | null>(null);
   const googleReady = hasGoogleClient();
+  // Whether Google gives Scribe a token without asking: signed in, as far as Scribe can tell.
+  const [googleIn, setGoogleIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (googleReady) void getGoogleToken(false).then(() => setGoogleIn(true), () => setGoogleIn(false));
+  }, [googleReady]);
   const openTabs = useOpenGoogleFiles().filter((t) => !settings.files.some((f) => f.id === t.id));
   // Record all can write to a Doc or an Obsidian note.
   const docs = settings.files.filter((f) => f.kind === "doc" || f.kind === "note");
@@ -105,6 +115,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
   const addFile = (file: FileRef): Promise<void> =>
     run(`add-${file.id}`, async () => {
       await getGoogleToken(true);
+      setGoogleIn(true);
       update({ files: [...settings.files.filter((f) => f.id !== file.id), file] });
       await engine.refreshFiles();
       const info = engine.getState().files[file.id];
@@ -148,14 +159,14 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
 
   /** A compact row: logo or icon, a title, at most one short line, and a control. */
   const pickRow = (icon: React.ReactNode, title: string, line: string, control: React.ReactNode, after?: React.ReactNode) => (
-    <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
+    <GlassItem className="gap-3.5 px-4 py-3.5" glassVariant="subtle">
       <Tile>{icon}</Tile>
       <ItemContent className="min-w-0">
         <ItemTitle>{title}</ItemTitle>
         <ItemDescription className="truncate">{line}</ItemDescription>
       </ItemContent>
       {(control || after) && (
-        <div className="basis-full pl-11">
+        <div className="basis-full pt-1">
           {control}
           {after}
         </div>
@@ -167,16 +178,27 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
     const current = files.find((f) => f.id === value);
     return (
       <GlassSelect items={[...(extra ? [extra] : []), ...files.map((f) => ({ value: f.id, label: fileName(f) }))]} onValueChange={(v) => v && onChange(String(v))} value={value}>
-        <GlassSelectTrigger aria-label={label} size="sm">
-          {current && <Logo className="size-4" name={FILE_LOGO[current.kind]} />}
+        <GlassSelectTrigger aria-label={label} className="h-11 w-full text-sm data-[size=default]:h-11">
+          {current && <Logo className="size-5" name={FILE_LOGO[current.kind]} />}
           <SelectValue />
         </GlassSelectTrigger>
         <GlassSelectContent>
-          {extra && <SelectItem value={extra.value}>{extra.label}</SelectItem>}
+          {extra && (
+            <SelectItem className="gap-3 py-2 pr-9" value={extra.value}>
+              <CrosshairIcon className="size-6 text-muted-foreground" />
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-[0.9375rem] text-foreground">{extra.label}</span>
+                <span className="truncate text-muted-foreground text-xs">Scribe picks per request</span>
+              </div>
+            </SelectItem>
+          )}
           {files.map((f) => (
-            <SelectItem key={f.id} value={f.id}>
-              <Logo className="size-4" name={FILE_LOGO[f.kind]} />
-              {fileName(f)}
+            <SelectItem className="gap-3 py-2 pr-9" key={f.id} value={f.id}>
+              <Logo className="size-6" name={FILE_LOGO[f.kind]} />
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-[0.9375rem] text-foreground">{fileName(f)}</span>
+                <span className="truncate text-muted-foreground text-xs">{KIND_LABEL[f.kind]}</span>
+              </div>
             </SelectItem>
           ))}
         </GlassSelectContent>
@@ -195,7 +217,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
               disabled={busy !== null}
               glassVariant="subtle"
               onClick={() => run("refresh", async () => void (await engine.refreshFiles()))}
-              size="icon-xs"
+              className="rounded-full" size="icon-lg"
               title="Read files again"
             >
               <RefreshCwIcon className={cn(busy === "refresh" && "animate-spin")} />
@@ -205,7 +227,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
         {!googleReady && (
           <GlassAlert glassVariant="subtle">
             <AlertTitle>Google sign-in isn’t set up in this build</AlertTitle>
-            <AlertDescription className="text-xs">
+            <AlertDescription className="text-sm">
               Add a Google OAuth client ID to the extension’s <code>.env</code> as <code>WXT_GOOGLE_CLIENT_ID</code>, then rebuild.
             </AlertDescription>
           </GlassAlert>
@@ -220,36 +242,41 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
                 return (
                   <div key={f.id}>
                     {i > 0 && <GlassSeparator className="mx-3" glassVariant="subtle" />}
-                    <GlassItem className="items-start gap-3 rounded-none border-0 px-3 py-3 shadow-none" glassVariant="clear" size="sm">
+                    <GlassItem className="gap-x-3.5 gap-y-2 rounded-none border-0 px-4 py-3.5 shadow-none" glassVariant="clear">
                       <Tile>
                         <Logo name={FILE_LOGO[f.kind]} />
                       </Tile>
                       <ItemContent className="min-w-0">
                         <ItemTitle className="flex flex-wrap items-center gap-1.5">
                           <span className="truncate">{fileName(f)}</span>
-                          {focus?.id === f.id && settings.files.length > 1 && <GlassBadge glassVariant="liquid">Working on</GlassBadge>}
+                          {focus?.id === f.id && settings.files.length > 1 && <GlassBadge className="h-6 px-2.5 text-sm" glassVariant="liquid">Working on</GlassBadge>}
                         </ItemTitle>
-                        {info?.error && <ProblemCard className="mt-1.5" onRetry={() => void engine.refreshFiles()} problem={info.error} />}
-                        {parts.length > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {parts.slice(0, 4).map((p) => (
-                              <GlassBadge glassVariant="subtle" key={p}>
-                                <AnchorIcon />
-                                {p}
-                              </GlassBadge>
-                            ))}
-                            {parts.length > 4 && <GlassBadge glassVariant="subtle">+{parts.length - 4}</GlassBadge>}
-                          </div>
-                        )}
                       </ItemContent>
                       <ItemActions>
-                        <GlassButton aria-label={`Open ${f.title}`} glassVariant="subtle" onClick={() => void chrome.tabs.create({ url: fileUrl(f) })} size="icon-xs">
+                        <GlassButton aria-label={`Open ${f.title}`} glassVariant="subtle" onClick={() => void chrome.tabs.create({ url: fileUrl(f) })} className="rounded-full" size="icon-lg">
                           <ExternalLinkIcon />
                         </GlassButton>
-                        <GlassButton aria-label={`Disconnect ${f.title}`} glassVariant="subtle" onClick={() => removeFile(f.id)} size="icon-xs">
+                        <GlassButton aria-label={`Disconnect ${f.title}`} glassVariant="subtle" onClick={() => removeFile(f.id)} className="rounded-full" size="icon-lg">
                           <XIcon />
                         </GlassButton>
                       </ItemActions>
+                      {/* Sections and problems use the row's full width, under the title. */}
+                      {(parts.length > 0 || info?.error) && (
+                        <div className="flex basis-full flex-col gap-1.5 pl-[3.125rem]">
+                          {info?.error && <ProblemCard onRetry={() => void engine.refreshFiles()} problem={info.error} />}
+                          {parts.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {parts.slice(0, 4).map((p) => (
+                                <GlassBadge className="h-6 px-2.5 text-sm" glassVariant="subtle" key={p}>
+                                  <AnchorIcon />
+                                  {p}
+                                </GlassBadge>
+                              ))}
+                              {parts.length > 4 && <GlassBadge className="h-6 px-2.5 text-sm" glassVariant="subtle">+{parts.length - 4}</GlassBadge>}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </GlassItem>
                   </div>
                 );
@@ -263,22 +290,21 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
         {googleReady && openTabs.length > 0 && (
           <>
             <SectionLabel>Open in this window</SectionLabel>
-            {openTabs.map((t) => (
-              <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" key={t.id} size="sm">
-                <Tile>
-                  <Logo name={FILE_LOGO[t.kind]} />
-                </Tile>
-                <ItemContent className="min-w-0">
-                  <ItemTitle className="truncate">{t.title}</ItemTitle>
-                </ItemContent>
-                <ItemActions>
-                  <GlassButton disabled={busy !== null} onClick={() => addFile({ id: t.id, kind: t.kind, title: t.title })} size="xs">
+            <PickList
+              items={openTabs.map((t) => ({
+                key: t.id,
+                logo: <Logo name={FILE_LOGO[t.kind]} />,
+                title: t.title,
+                description: `${KIND_LABEL[t.kind]} · open in a tab`,
+                action: (
+                  <GlassButton disabled={busy !== null} onClick={() => addFile({ id: t.id, kind: t.kind, title: t.title })} size="lg">
                     <PlusIcon />
                     {busy === `add-${t.id}` ? "Adding…" : "Add"}
                   </GlassButton>
-                </ItemActions>
-              </GlassItem>
-            ))}
+                ),
+              }))}
+              label="Google files open in this window"
+            />
           </>
         )}
 
@@ -288,21 +314,55 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
         <OverleafSection connected={settings.files} onAdd={addLocal} />
 
         {googleReady && (
-          <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
+          <GlassItem className="gap-3.5 px-4 py-3.5" glassVariant="subtle">
             <Tile>
               <Logo name="google" />
             </Tile>
             <ItemContent className="min-w-0">
               <ItemTitle>Google account</ItemTitle>
-              <ItemDescription className="flex items-center gap-1 truncate">
-                <ShieldCheckIcon className="size-3 shrink-0" />
-                Edits use your name
+              <ItemDescription className="flex items-center gap-1">
+                {googleIn === false ? (
+                  "Signed out. Docs, Sheets and Slides need it"
+                ) : (
+                  <>
+                    <ShieldCheckIcon className="size-4 shrink-0" />
+                    Edits use your name
+                  </>
+                )}
               </ItemDescription>
             </ItemContent>
             <ItemActions>
-              <GlassButton glassVariant="subtle" onClick={() => run("signout", async () => { await signOutGoogle(); return "Signed out of Google"; })} size="xs">
-                Sign out
-              </GlassButton>
+              {googleIn === false ? (
+                <GlassButton
+                  disabled={busy !== null}
+                  onClick={() =>
+                    run("signin", async () => {
+                      await getGoogleToken(true);
+                      setGoogleIn(true);
+                      void engine.refreshFiles();
+                      return "Signed in to Google";
+                    })
+                  }
+                  size="lg"
+                >
+                  Sign in
+                </GlassButton>
+              ) : (
+                <GlassButton
+                  disabled={busy !== null}
+                  glassVariant="subtle"
+                  onClick={() =>
+                    run("signout", async () => {
+                      const { revoked } = await signOutGoogle();
+                      setGoogleIn(false);
+                      return revoked ? "Signed out of Google" : "Signed out here. Google didn’t confirm; you can also remove Scribe at myaccount.google.com › Security";
+                    })
+                  }
+                  size="lg"
+                >
+                  Sign out
+                </GlassButton>
+              )}
             </ItemActions>
           </GlassItem>
         )}
@@ -345,7 +405,7 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
 
       <div className="flex flex-col gap-2">
         <SectionLabel>Also</SectionLabel>
-        <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
+        <GlassItem className="gap-3.5 px-4 py-3.5" glassVariant="subtle">
           <Tile>
             <MessageSquareQuoteIcon />
           </Tile>
@@ -355,13 +415,71 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
           </ItemContent>
           <ItemActions>
             <LiquidSwitch
+              className="h-7 w-12"
               aria-label="Credit each change"
               checked={settings.outputs.docComments}
               onCheckedChange={(v: boolean) => update({ outputs: { ...settings.outputs, docComments: v } })}
             />
           </ItemActions>
         </GlassItem>
+        <SavedMeetings engine={engine} />
       </div>
     </section>
+  );
+}
+
+/**
+ * Meetings are saved on this computer (never synced) and kept 30 days. One button deletes them all,
+ * this one included; the first click only asks.
+ */
+/** The AI log as a .jsonl file, for scripts/eval-report.mjs. Saved by the browser like any download. */
+async function exportLog() {
+  const text = await interactionLog.exportJsonl();
+  const url = URL.createObjectURL(new Blob([text], { type: "application/x-ndjson" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `speak-and-edit-ai-log-${new Date().toISOString().slice(0, 10)}.jsonl`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+function SavedMeetings({ engine }: { engine: Engine }) {
+  const [count, setCount] = useState<number | null>(null);
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    void listMeetings().then((all) => setCount(all.filter((m) => m.lines > 0).length));
+  }, []);
+  useEffect(() => {
+    if (!asking) return;
+    const t = setTimeout(() => setAsking(false), 4000);
+    return () => clearTimeout(t);
+  }, [asking]);
+  const remove = async () => {
+    setAsking(false);
+    const n = await deleteAllMeetings();
+    await interactionLog.clear();
+    engine.clearMeeting();
+    setCount(0);
+    toast.success(n ? `Deleted ${n} saved ${n === 1 ? "meeting" : "meetings"}` : "Nothing was saved");
+  };
+  return (
+    <GlassItem className="gap-3.5 px-4 py-3.5" glassVariant="subtle">
+      <Tile>
+        <HistoryIcon />
+      </Tile>
+      <ItemContent className="min-w-0">
+        <ItemTitle>Saved meetings{count ? ` (${count})` : ""}</ItemTitle>
+        <ItemDescription className="line-clamp-2">Meetings and the AI log, on this computer, kept 30 days</ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <GlassButton aria-label="Export the AI log" className="rounded-full" glassVariant="subtle" onClick={() => void exportLog()} size="icon-lg" title="Export the AI log">
+          <DownloadIcon />
+        </GlassButton>
+        <GlassButton aria-label={asking ? "Delete all saved meetings, this one too" : "Delete saved meetings"} glassVariant="subtle" onClick={() => (asking ? void remove() : setAsking(true))} size="lg">
+          <Trash2Icon />
+          {asking ? "Delete all?" : "Delete"}
+        </GlassButton>
+      </ItemActions>
+    </GlassItem>
   );
 }

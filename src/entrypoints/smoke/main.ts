@@ -979,6 +979,30 @@ The pilot reached 30\% accuracy.
   }
   reset({ files: allFiles, transcriptFileId: null });
 
+  /* L. Long meetings: a request that points back further than the last 6 lines */
+  print("\n— L. Long meeting: referring back");
+  reset({ files: [DOC] });
+  engine.addLine("Priya", "For the pilot, the budget is 42 thousand dollars, and finance approved it.", Date.now());
+  for (let i = 0; i < 20; i++) {
+    const [who, line] = i % 2
+      ? ["Marco", ["The venue can seat about sixty people.", "I'll send the agenda tonight.", "Let's keep the demo short.", "The slides need a new cover.", "Can everyone hear me okay?"][i % 5]!]
+      : ["Lena", ["We should invite the design team too.", "Coffee will be in the lobby.", "I booked the room until five.", "The projector cable is in my bag.", "Let's do introductions first."][i % 5]!];
+    engine.addLine(who, line, Date.now());
+  }
+  await settle();
+  await check("L1", "add what someone said 21 lines earlier", async () => {
+    const e = await say("Scribe, add what Priya said about the pilot budget to decisions.");
+    written(e);
+    const decisions = sectionText((await readDoc(DOC.id)).outline, "Decisions");
+    expect(/42/.test(decisions), `Decisions has no 42: ${decisions.slice(-200)}`);
+    return describe(e);
+  });
+  await check("L2", "answer about something said 22 lines earlier", async () => {
+    const e = await say("Scribe, what budget did Priya give for the pilot?");
+    expect(kind(e) === "answer" && /42/.test((e.action as { answer: string }).answer), describe(e));
+    return describe(e);
+  });
+
   const tally = (st: Status) => results.filter((r) => r.status === st).length;
   w.smoke.summary = `${tally("pass")} passed, ${tally("fail")} failed, ${tally("soft")} soft (model judgement) of ${results.length}`;
   print(`\n${w.smoke.summary}`, tally("fail") ? "fail" : "pass");

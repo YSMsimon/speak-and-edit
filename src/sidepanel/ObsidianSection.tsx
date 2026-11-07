@@ -12,6 +12,7 @@ import { GlassButton } from "@/components/glasscn/ui/glasscn/glass-button";
 import { GlassItem } from "@/components/glasscn/ui/glasscn/glass-item";
 
 import { Logo } from "./logos";
+import { PickList } from "./shared";
 import { ProblemCard } from "./problem";
 
 /** Where Scribe keeps meeting notes inside the vault. */
@@ -64,47 +65,57 @@ export function ObsidianSection(props: { connected: FileRef[]; meetingTitle: str
 
   return (
     <div className="flex flex-col gap-2">
-      <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
-        <ItemMedia className="[&_svg]:!size-7">
+      <GlassItem className="gap-3.5 px-4 py-3.5" glassVariant="subtle">
+        <ItemMedia className="[&_svg]:!size-9">
           <Logo name="obsidian" />
         </ItemMedia>
         <ItemContent className="min-w-0">
           <ItemTitle>Obsidian</ItemTitle>
-          <ItemDescription className="truncate">{vault ? `Vault: ${vault.name}` : "Notes in a folder on this computer"}</ItemDescription>
+          <ItemDescription className="line-clamp-2">{vault ? `Vault: ${vault.name}` : "Notes in a folder on this computer"}</ItemDescription>
         </ItemContent>
         <ItemActions>
           {!vault ? (
-            <GlassButton onClick={choose} size="xs">
+            <GlassButton onClick={choose} size="lg">
               <FolderOpenIcon />
               Choose vault
             </GlassButton>
           ) : !allowed ? (
-            <GlassButton onClick={allow} size="xs">
+            <GlassButton onClick={allow} size="lg">
               Allow
             </GlassButton>
           ) : (
-            <GlassButton onClick={() => void create()} size="xs">
-              <PlusIcon />
-              New note
-            </GlassButton>
+            <>
+              <GlassButton aria-label="Change vault" className="rounded-full" glassVariant="subtle" onClick={choose} size="icon-lg" title="Change vault">
+                <FolderOpenIcon />
+              </GlassButton>
+              <GlassButton onClick={() => void create()} size="lg">
+                <PlusIcon />
+                New note
+              </GlassButton>
+            </>
           )}
         </ItemActions>
-        {vault && allowed && (
-          <div className="flex basis-full flex-col gap-1 pl-11">
-            {unused.map((p) => (
-              <div className="flex items-center gap-2 text-xs" key={p}>
-                <span className="min-w-0 flex-1 truncate text-muted-foreground">{p.replace(`${NOTES_FOLDER}/`, "").replace(/\.md$/, "")}</span>
-                <GlassButton glassVariant="subtle" onClick={() => void props.onAdd(ref(vault, p))} size="xs">
+      </GlassItem>
+      {vault && allowed && unused.length > 0 && (
+        <PickList
+          items={unused.map((p) => {
+            const parts = p.replace(/\.md$/, "").split("/");
+            return {
+              key: p,
+              logo: <Logo name="obsidian" />,
+              title: parts.pop() ?? p,
+              description: `Obsidian note · ${parts.join("/") || vault.name}`,
+              action: (
+                <GlassButton onClick={() => void props.onAdd(ref(vault, p))} size="lg">
+                  <PlusIcon />
                   Add
                 </GlassButton>
-              </div>
-            ))}
-            <button className="self-start text-muted-foreground text-xs underline-offset-2 hover:underline" onClick={choose} type="button">
-              Change vault
-            </button>
-          </div>
-        )}
-      </GlassItem>
+              ),
+            };
+          })}
+          label="Notes in your vault"
+        />
+      )}
       {problem != null && <ProblemCard onDismiss={() => setProblem(null)} problem={problem} />}
     </div>
   );

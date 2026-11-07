@@ -120,8 +120,8 @@ function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="item-title"
       className={cn(
-        // local patch: the mockups' row scale — titles a step larger than shadcn's default.
-        "line-clamp-1 flex w-fit min-w-0 items-center gap-2 font-heading text-[15px] leading-snug font-medium underline-offset-4",
+        // local patch: the mockups' row scale — titles two steps larger than shadcn's default.
+        "line-clamp-1 flex w-fit min-w-0 items-center gap-2 font-heading text-base leading-snug font-medium underline-offset-4",
         className,
       )}
       {...props}
@@ -134,7 +134,8 @@ function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="item-description"
       className={cn(
-        "line-clamp-4 text-left text-sm font-normal text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        // local patch: descriptions a step larger, as in the mockups.
+        "line-clamp-4 text-left text-[0.9375rem] font-normal text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className,
       )}
       {...props}

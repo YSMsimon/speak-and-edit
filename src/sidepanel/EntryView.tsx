@@ -1,4 +1,4 @@
-import { CheckIcon, ClockIcon, FilmIcon, SlidersHorizontalIcon, XIcon } from "lucide-react";
+import { CheckIcon, ClockIcon, EarOffIcon, FilmIcon, SlidersHorizontalIcon, XIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Engine, Entry, Proposal } from "@/lib/engine";
@@ -13,6 +13,7 @@ import {
   ConfirmationRequest,
   ConfirmationTitle,
 } from "@/components/ai-elements/confirmation";
+import { Checkpoint, CheckpointIcon } from "@/components/ai-elements/checkpoint";
 import { Image } from "@/components/ai-elements/image";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Question, QuestionActions, QuestionOption, QuestionOptions, QuestionPrompt, QuestionSubmit } from "@/components/ai-elements/question";
@@ -53,8 +54,8 @@ function MediaPreview({ p }: { p: Proposal }) {
   if (p.media?.preview) return <Still alt={p.media.caption} dataUrl={p.media.preview} />;
   if (p.media) {
     return (
-      <p className="flex items-center gap-1.5 text-muted-foreground text-xs">
-        <FilmIcon className="size-3.5" />
+      <p className="flex items-center gap-1.5 text-muted-foreground text-sm">
+        <FilmIcon className="size-4" />
         {p.media.caption}
       </p>
     );
@@ -93,12 +94,12 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
       // Spoken and typed lines can run again; a screenshot or recording can't be redone.
       return <ProblemCard onRetry={entry.source ? undefined : () => engine.retry(entry.id)} problem={a.message} />;
     case "discarded":
-      return <p className="flex items-center gap-1.5 text-muted-foreground text-xs"><XIcon className="size-3.5" />Discarded</p>;
+      return <p className="flex items-center gap-1.5 text-muted-foreground text-sm"><XIcon className="size-4" />Discarded</p>;
     case "transcript":
       return (
-        <div className="flex flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
-          {a.status === "written" ? <CheckIcon className="size-3.5 text-green-600" /> : a.status === "failed" ? <XIcon className="size-3.5 text-destructive" /> : <ClockIcon className="size-3.5" />}
-          <Logo className="size-3.5" name="doc" />
+        <div className="flex flex-wrap items-center gap-1.5 text-muted-foreground text-sm">
+          {a.status === "written" ? <CheckIcon className="size-4 text-green-600" /> : a.status === "failed" ? <XIcon className="size-4 text-destructive" /> : <ClockIcon className="size-4" />}
+          <Logo className="size-4" name="doc" />
           <span>
             {a.status === "waiting" && `Transcript, ${a.fileTitle}: waiting`}
             {a.status === "queued" && `Transcript, ${a.fileTitle}…`}
@@ -107,10 +108,10 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
           </span>
           {a.status === "waiting" && (
             <span className="flex gap-1">
-              <GlassButton glassVariant="subtle" onClick={() => engine.approve(entry.id)} size="xs">
+              <GlassButton glassVariant="subtle" onClick={() => engine.approve(entry.id)} size="default">
                 Add
               </GlassButton>
-              <GlassButton glassVariant="subtle" onClick={() => engine.discard(entry.id)} size="xs">
+              <GlassButton glassVariant="subtle" onClick={() => engine.discard(entry.id)} size="default">
                 Skip
               </GlassButton>
             </span>
@@ -149,7 +150,7 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
     case "answer":
       return (
         <Message from="assistant">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs">
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <span className="font-medium text-foreground">Scribe</span>
           </div>
           <MessageContent className={cn("rounded-xl px-3 py-2", subtle)}>
@@ -183,7 +184,7 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
       const p = a.proposal;
       return (
         <Tool className={cn("mb-0 rounded-xl", subtle)} defaultOpen>
-          <ToolHeader className="p-2.5 text-left" icon={<Logo className="size-6" name={FILE_LOGO[p.file.kind]} />} state="approval-requested" title={proposalTitle(p)} type="tool-scribe" />
+          <ToolHeader className="p-3 text-left" compact icon={<Logo className="size-7" name={FILE_LOGO[p.file.kind]} />} state="approval-requested" title={proposalTitle(p)} type="tool-scribe" />
           <ToolContent className="space-y-3 p-3">
             <MediaPreview p={p} />
             <ToolInput input={{ file: p.file.title, ...describeWrite(p.write) }} />
@@ -225,7 +226,7 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
                 : "Added";
       return (
         <Tool className={cn("mb-0 rounded-xl", subtle)} defaultOpen={waiting}>
-          <ToolHeader className="p-2.5 text-left" icon={<Logo className="size-6" name={FILE_LOGO[p.file.kind]} />} state={state} title={`${verb}: ${p.file.title} › ${r.where}`} type="tool-scribe" />
+          <ToolHeader className="p-3 text-left" compact icon={<Logo className="size-7" name={FILE_LOGO[p.file.kind]} />} state={state} title={`${verb}: ${p.file.title} › ${r.where}`} type="tool-scribe" />
           <ToolContent className="space-y-3 p-3">
             <MediaPreview p={p} />
             <ToolInput input={{ ...(r.remove ? { remove: r.remove } : {}), add: r.add, requested_by: `${p.speaker}, ${timeOf(p.at).slice(0, 5)}` }} />
@@ -263,18 +264,29 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
 }
 
 export function EntryView({ entry, engine, me, avatar }: { entry: Entry; engine: Engine; me: string | null; avatar?: string }) {
+  if (entry.source === "gap") {
+    return (
+      <Checkpoint>
+        <CheckpointIcon>
+          <EarOffIcon className="size-4 shrink-0" />
+        </CheckpointIcon>
+        <span className="shrink-0 px-1 text-sm">{entry.text}</span>
+      </Checkpoint>
+    );
+  }
   const mine = entry.typed || (me !== null && entry.speaker === me);
   const wake = entry.addressed && !entry.typed;
   return (
     <div className="flex flex-col gap-2">
       <Message from={mine ? "user" : "assistant"}>
-        <div className={cn("flex items-center gap-2 text-muted-foreground text-xs", mine && "justify-end")}>
+        {/* Your own lines are mirrored, as in chat apps: avatar at the right edge, above the bubble. */}
+        <div className={cn("flex items-center gap-2 text-muted-foreground text-sm", mine && "flex-row-reverse")}>
           <SpeakerAvatar name={entry.speaker} src={avatar} />
-          <span className="font-medium text-foreground text-sm">{entry.speaker}</span>
+          <span className="font-medium text-base text-foreground">{entry.speaker}</span>
           <time className="tabular-nums">{timeOf(entry.at)}</time>
           {entry.typed && <span>typed</span>}
         </div>
-        <MessageContent className="text-[15px]">
+        <MessageContent className="text-base">
           <p className={cn(wake && "font-medium")}>{entry.text}</p>
         </MessageContent>
       </Message>

@@ -40,6 +40,13 @@ export function hasGoogleClient(): boolean {
   return Boolean(chrome.runtime.getManifest().oauth2?.client_id);
 }
 
+/** Set by Sign out, cleared by the next sign-in: until then nothing opens Google's sign-in window by itself. */
+const SIGNED_OUT = "scribe.google.signedOut";
+
+export async function isGoogleSignedOut(): Promise<boolean> {
+  return Boolean((await chrome.storage.local.get(SIGNED_OUT))[SIGNED_OUT]);
+}
+
 export async function getGoogleToken(interactive: boolean): Promise<string> {
   if (!hasGoogleClient()) {
     throw new GoogleError("Google sign-in isn’t set up in this build. Add WXT_GOOGLE_CLIENT_ID to .env and rebuild.");
@@ -47,16 +54,45 @@ export async function getGoogleToken(interactive: boolean): Promise<string> {
   const result = await chrome.identity.getAuthToken({ interactive, scopes: SCOPES });
   const token = typeof result === "string" ? result : result?.token;
   if (!token) throw new GoogleError("Google sign-in was cancelled.");
+  if (interactive) await chrome.storage.local.remove(SIGNED_OUT);
   return token;
 }
 
-export async function signOutGoogle(): Promise<void> {
+/**
+ * A token for an API call: quietly when Google allows it, otherwise Google's sign-in window.
+ * After Sign out, never the window by itself: the person signs in again from Outputs.
+ */
+export async function googleToken(): Promise<string> {
+  try {
+    return await getGoogleToken(false);
+  } catch (e) {
+    if (await isGoogleSignedOut()) throw new GoogleError("You signed out of Google. Sign in again in Outputs.");
+    return getGoogleToken(true);
+  }
+}
+
+/**
+ * Signs out for real: Google withdraws Scribe's access (so a quiet token can't come back), and
+ * Chrome forgets its copies. The next sign-in asks again.
+ */
+export async function signOutGoogle(): Promise<{ revoked: boolean }> {
+  await chrome.storage.local.set({ [SIGNED_OUT]: true });
+  let revoked = false;
   try {
     const token = await getGoogleToken(false);
+    const res = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }),
+    });
+    revoked = res.ok;
     await chrome.identity.removeCachedAuthToken({ token });
   } catch {
-    // already signed out
+    // No token to withdraw: already signed out.
+    revoked = true;
   }
+  await chrome.identity.clearAllCachedAuthTokens().catch(() => undefined);
+  return { revoked };
 }
 
 /** How long to wait before retry n (0-based) after Google says "too many requests". */
@@ -71,7 +107,7 @@ export const RETRIES = 4;
  * waits and retries on 429 / 503 (Sheets allows 60 reads per minute per person).
  */
 export async function googleFetch<T>(url: string, init: RequestInit = {}, retried = false, attempt = 0): Promise<T> {
-  const token = await getGoogleToken(false).catch(() => getGoogleToken(true));
+  const token = await googleToken();
   const res = await fetch(url, {
     ...init,
     headers: { ...(init.headers ?? {}), Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

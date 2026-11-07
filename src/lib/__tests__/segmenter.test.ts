@@ -70,28 +70,64 @@ describe('Segmenter', () => {
 });
 
 describe('How long Scribe waits before a line counts as finished', () => {
-  it('is quick after a full stop or question mark, normal with no clue, patient when the words are unfinished', () => {
-    expect(quietMs('Scribe, add Postgres 16 to Decisions.')).toBe(QUIET_MS.done);
-    expect(quietMs('What did we decide about billing?')).toBe(QUIET_MS.done);
-    expect(quietMs('we went with Stripe')).toBe(QUIET_MS.normal);
+  it('waits for Meet to close the sentence, longer when the words are unfinished', () => {
+    expect(quietMs('Scribe, add Postgres 16 to Decisions.')).toBe(QUIET_MS.sentenceEnd);
+    expect(quietMs('What did we decide about billing?')).toBe(QUIET_MS.sentenceEnd);
+    expect(quietMs('we went with Stripe')).toBe(QUIET_MS.open);
     expect(quietMs('Scribe,')).toBe(QUIET_MS.unfinished);
     expect(quietMs('Scribe, add Postgres 16 to')).toBe(QUIET_MS.unfinished);
     expect(quietMs('the launch is in December and')).toBe(QUIET_MS.unfinished);
     expect(quietMs('so um')).toBe(QUIET_MS.unfinished);
-    expect(QUIET_MS).toEqual({ done: 700, normal: 1200, unfinished: 2000 });
+    expect(QUIET_MS).toEqual({ sentenceEnd: 1500, open: 4000, unfinished: 5000 });
   });
 
-  it('ends a finished sentence after 0.7 s, but holds an unfinished one through a 1.5 s pause', () => {
+  it('keeps a request that runs over two sentences together', () => {
+    const out: string[] = [];
+    const ft = fakeTimers();
+    const seg = new Segmenter((u) => out.push(u.text), () => {}, undefined, ft.timers);
+    seg.update('b1', 'Simon', 'Scribe, add to decisions.');
+    ft.advance(1200); // a breath before the rest
+    expect(out).toEqual([]);
+    seg.update('b1', 'Simon', "Scribe, add to decisions. We're using Postgres 16.");
+    ft.advance(1499);
+    expect(out).toEqual([]);
+    ft.advance(1);
+    expect(out).toEqual(["Scribe, add to decisions. We're using Postgres 16."]);
+  });
+
+  it('waits for Meet’s full stop: the wait starts again when it appears', () => {
+    const out: string[] = [];
+    const ft = fakeTimers();
+    const seg = new Segmenter((u) => out.push(u.text), () => {}, undefined, ft.timers);
+    seg.update('b1', 'Simon', 'Scribe, add Postgres 16 to decisions');
+    ft.advance(800); // Meet adds the full stop a moment after the speaker stops
+    seg.update('b1', 'Simon', 'Scribe, add Postgres 16 to decisions.');
+    ft.advance(1499);
+    expect(out).toEqual([]);
+    ft.advance(1);
+    expect(out).toEqual(['Scribe, add Postgres 16 to decisions.']);
+  });
+
+  it('still finishes a phrase Meet never punctuates, after 4 s', () => {
+    const out: string[] = [];
+    const ft = fakeTimers();
+    const seg = new Segmenter((u) => out.push(u.text), () => {}, undefined, ft.timers);
+    seg.update('b1', 'Simon', 'Scribe pause');
+    ft.advance(3999);
+    expect(out).toEqual([]);
+    ft.advance(1);
+    expect(out).toEqual(['Scribe pause']);
+  });
+
+  it('holds an unfinished request through a long pause', () => {
     const out: string[] = [];
     const ft = fakeTimers();
     const seg = new Segmenter((u) => out.push(u.text), () => {}, undefined, ft.timers);
     seg.update('b1', 'Simon', 'Scribe, add Postgres 16 to');
-    ft.advance(1500);
+    ft.advance(4500);
     expect(out).toEqual([]); // still thinking of the section
     seg.update('b1', 'Simon', 'Scribe, add Postgres 16 to Decisions.');
-    ft.advance(699);
-    expect(out).toEqual([]);
-    ft.advance(1);
+    ft.advance(1500);
     expect(out).toEqual(['Scribe, add Postgres 16 to Decisions.']);
   });
 });

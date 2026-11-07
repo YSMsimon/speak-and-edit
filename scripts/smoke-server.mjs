@@ -1,5 +1,6 @@
 // Dev-only helper for the end-to-end smoke test, on http://127.0.0.1:8792 (this computer only).
 //   POST /log    the smoke page sends each result line here; appended to .smoke/smoke.log
+//   POST /interactions  smoke builds of Scribe send their AI log here; appended to .smoke/interactions.jsonl
 //   GET  /state  what smoke builds of Scribe poll: { build, run, nonce }
 //                - build differs from the loaded one → Scribe reloads itself
 //                - run + a new nonce → Scribe opens its smoke page for that AI provider
@@ -19,6 +20,17 @@ createServer((req, res) => {
     req.on("data", (c) => (body += c));
     req.on("end", () => {
       appendFileSync(LOG, `${body}\n`);
+      res.writeHead(204).end();
+    });
+    return;
+  }
+  if (req.method === "POST" && req.url === "/interactions") {
+    // Only Scribe itself: a web page must not be able to add lines to the log the eval reads.
+    if (!String(req.headers.origin ?? "").startsWith("chrome-extension://")) return void res.writeHead(403).end();
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      appendFileSync(new URL("interactions.jsonl", DIR), body.endsWith("\n") ? body : `${body}\n`);
       res.writeHead(204).end();
     });
     return;

@@ -3,7 +3,7 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { decideSmart, parseCommand, readScreen } from '../ai/agent';
+import { confirmRequest, decideSmart, parseCommand, readScreen } from '../ai/agent';
 import { buildOutline, describeOutline } from '../docs/outline';
 import { planEdit } from '../docs/plan';
 import { makeDoc, SPEC } from './fixtures';
@@ -238,4 +238,24 @@ The pilot reached 30\% accuracy.
     expect(intent.section).toBe('Method');
     expect(intent.text).not.toMatch(/\\item/);
   }, 60_000);
+});
+
+describe.skipIf(!live)(`live: ${MODEL}, words that only sound like "Scribe"`, () => {
+  const files = ['Q4 Platform Spec', 'Tracker'];
+  const recent = ['Priya: Okay, let’s go through the launch plan.', 'Marco: We still need a database decision.'];
+  const cases: [string, string, boolean][] = [
+    ['Simon', 'Subscribe! Add Postgres 16 to decisions.', true],
+    ['Simon', 'Describe, can you take a screenshot of this slide?', true],
+    ['Simon', 'Scrub, mark the login fix as done in the tracker.', true],
+    ['Lena', 'Describe the onboarding flow for me, Priya.', false],
+    ['Marco', 'Subscribe to the newsletter if you want the release notes.', false],
+    ['Simon', 'Subscribe! Hello, how are you? Thank you, and you?', false],
+  ];
+  for (const [speaker, text, expected] of cases) {
+    it(`${expected ? 'for Scribe' : 'not for Scribe'}: ${text}`, async () => {
+      const { confirmation } = await confirmRequest(ai, { speaker, text, wakeWord: 'Scribe' }, { recent, files });
+      console.log(JSON.stringify(confirmation));
+      expect(confirmation.forScribe).toBe(expected);
+    }, 60_000);
+  }
 });

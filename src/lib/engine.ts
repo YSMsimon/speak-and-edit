@@ -11,11 +11,18 @@
 //   screen   Stills of the shared screen and recordings are saved to the user's Drive,
 //            then added to a file. Docs and Slides copy a picture only from a public link,
 //            so it is public for those few seconds and switched off right after.
+//   meeting  One saved meeting per Meet call (sessions.ts): snapshot() and loadMeeting() let the
+//            panel close and reopen without losing anything. Lines heard while it was closed come
+//            back from the Meet tab (addMissed) and are never run as requests.
+//   context  Each request gets the last 6 lines, plus older lines and a running summary that fit
+//            about 10% of the model's window (ai/context.ts).
 
-import { answerQuestion, decideSmart, parseCommand, readScreen, type AiModel, type Control, type Intent, type Usage } from "./ai/agent";
+import { answerQuestion, confirmRequest, decideSmart, parseCommand, readScreen, summarizeMeeting, type AiModel, type Control, type Intent, type Usage } from "./ai/agent";
+import { budgetFor, earlierBlock, knownWindow, linesToFold, lineText, RECENT_LINES, type Line } from "./ai/context";
 import { modelFor, resolveProvider, visionModelFor } from "./ai/providers";
 import { CREDIT_TEMPLATE, fillCredit, TRANSCRIPT_HEADING } from "./docs/plan";
 import { normalizeError } from "./problems";
+import type { AiJob, Feedback, Interaction } from "./interactions";
 import { dataUrlToBlob, type DriveFile, type PublicLink } from "./drive";
 import { KIND_LABEL, type FileKind, type FileRef } from "./files";
 import type { Frame, MeetState } from "./messages";
@@ -90,9 +97,39 @@ export interface Entry {
   at: number;
   addressed: boolean;
   typed: boolean;
-  /** Not a spoken line: a still of the shared screen, or a finished recording. */
-  source?: "screen" | "recording";
+  /** Not a spoken line: a still of the shared screen, a finished recording, or a stretch Scribe heard nothing. */
+  source?: "screen" | "recording" | "gap";
+  /** Heard while the panel was closed: shown, kept, never run as a request. */
+  missed?: boolean;
   action: Action;
+}
+
+/** The running summary of older lines, and the last line it covers. */
+export interface MeetingSummary {
+  text: string;
+  through: string;
+}
+
+/** One meeting as saved in chrome.storage.local (sessions.ts). */
+export interface SavedMeeting {
+  v: 1;
+  /** Also the start of every entry ID in it, so two meetings' IDs never collide. */
+  id: string;
+  code: string;
+  title: string | null;
+  startedAt: number;
+  updatedAt: number;
+  /** The last time Scribe knew you were in the call, and when you left it (null while in it). */
+  lastInCall: number | null;
+  leftAt: number | null;
+  /** The end of the last "heard nothing" marker, so the same gap is never marked twice. */
+  lastGapEnd: number | null;
+  entries: Entry[];
+  speakers: Record<string, number>;
+  avatars: Record<string, string>;
+  usage: Usage;
+  summary: MeetingSummary | null;
+  nextId: number;
 }
 
 export interface FileInfo {
@@ -130,7 +167,15 @@ export interface EngineDeps {
     decideSmart: typeof decideSmart;
     answerQuestion: typeof answerQuestion;
     readScreen: typeof readScreen;
+    /** Folds older lines into the running summary. Without it, older lines are only trimmed. */
+    summarizeMeeting?: typeof summarizeMeeting;
+    /** Was a line that starts with a word like the wake word ("Subscribe!") really said to Scribe? */
+    confirmRequest?: typeof confirmRequest;
   };
+  /** The chosen model's context window in tokens. Defaults to what each provider is known to offer. */
+  contextWindow?: (id: ProviderId, s: Settings) => Promise<number>;
+  /** The AI log (interactions.ts): every model call, every outcome, every approve/reject/retry. */
+  log?: (e: Interaction) => void;
   /** Saves a settings change (the control tool). */
   updateSettings: (patch: Partial<Settings>) => void;
   /** Things outside the engine that the control tool can switch. Each throws with a readable message. */
@@ -149,7 +194,7 @@ export interface EngineDeps {
   schedule: (fn: () => void, ms: number) => void;
 }
 
-export const defaultAi = { parseCommand, decideSmart, answerQuestion, readScreen };
+export const defaultAi = { parseCommand, decideSmart, answerQuestion, readScreen, summarizeMeeting, confirmRequest };
 export const defaultModel = modelFor;
 export const defaultVisionModel = visionModelFor;
 /** How long after a bare "Scribe," the same speaker's next line still counts as the request. */
@@ -178,6 +223,13 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const FILE_TTL = 60_000;
 const TRANSCRIPT_DELAY = 3000;
 const TRANSCRIPT_BATCH = 8;
+/** A failed transcript line is sent again with the next batches, this many times. */
+const TRANSCRIPT_TRIES = 3;
+/** Shorter stretches out of the call aren't marked. */
+const GAP_MIN_MS = 30_000;
+/** After a failed summary, wait this long before trying again. */
+const SUMMARY_BACKOFF_MS = 120_000;
+const STOPPED = "Stopped when the panel closed.";
 
 export class Engine {
   private state: EngineState = {
@@ -198,10 +250,74 @@ export class Engine {
   private fileCache = new Map<string, { at: number; ctx?: FileContext; error?: string }>();
   private transcriptQueue: { id: string; line: string; file: FileRef }[] = [];
   /** Someone said only "Scribe," and paused: their next line is the request. */
-  private awaiting: { speaker: string; until: number } | null = null;
+  /** maybe: the bare word only sounded like the wake word ("Subscribe!"), so the request gets checked. */
+  private awaiting: { speaker: string; until: number; maybe?: boolean } | null = null;
   private flushScheduled = false;
+  /** The meeting these lines belong to; null until the Meet code is known. */
+  private meeting: { id: string; code: string; title: string | null; startedAt: number } | null = null;
+  private lastInCall: number | null = null;
+  private leftAt: number | null = null;
+  private lastGapEnd: number | null = null;
+  private wasInCall = false;
+  private summary: MeetingSummary | null = null;
+  private summarizing: Promise<void> | null = null;
+  private summaryFailedAt = 0;
+  private transcriptTries = new Map<string, number>();
+  /** Goes up on every change worth saving, so the panel saves only when something changed. */
+  private rev = 0;
+  /** The line the current step works on, so AI calls in the log say which line they were for. */
+  private working: string | null = null;
 
-  constructor(private deps: EngineDeps) {}
+  constructor(private deps: EngineDeps) {
+    if (deps.log) this.deps = { ...deps, ai: this.loggedAi(deps.ai, deps.log) };
+  }
+
+  /** Every AI call, in and out, with its time and any error, for the AI log. */
+  private loggedAi(ai: EngineDeps["ai"], log: (e: Interaction) => void): EngineDeps["ai"] {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wrap = <F extends (...args: any[]) => Promise<any>>(job: AiJob, fn: F | undefined): F | undefined => {
+      if (!fn) return undefined;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (async (...args: any[]) => {
+        const started = Date.now();
+        const s = this.deps.settings();
+        const provider = this.state.provider ?? s.provider;
+        const base = {
+          t: "ai" as const,
+          at: this.deps.now(),
+          meeting: this.meeting?.id ?? null,
+          ...(this.working ? { entry: this.working } : {}),
+          job,
+          provider,
+          model: s.models[provider] ?? null,
+          input: args[1],
+          ...(job === "summarizeMeeting" ? {} : { ctx: args[2] }),
+        };
+        try {
+          const out = await fn(...args);
+          const { usage, ...rest } = (out ?? {}) as { usage?: Usage };
+          log({ ...base, output: rest, usage, ms: Date.now() - started });
+          return out;
+        } catch (e) {
+          log({ ...base, error: message(e), ms: Date.now() - started });
+          throw e;
+        }
+      }) as F;
+    };
+    return {
+      ...ai,
+      parseCommand: wrap("parseCommand", ai.parseCommand)!,
+      decideSmart: wrap("decideSmart", ai.decideSmart)!,
+      answerQuestion: wrap("answerQuestion", ai.answerQuestion)!,
+      readScreen: wrap("readScreen", ai.readScreen)!,
+      summarizeMeeting: wrap("summarizeMeeting", ai.summarizeMeeting),
+      confirmRequest: wrap("confirmRequest", ai.confirmRequest),
+    };
+  }
+
+  private logFeedback(id: string, action: Feedback, detail?: string) {
+    this.deps.log?.({ t: "feedback", at: this.deps.now(), meeting: this.meeting?.id ?? null, entry: id, action, ...(detail ? { detail } : {}) });
+  }
 
   /* ---------- store ---------- */
 
@@ -214,11 +330,34 @@ export class Engine {
 
   private set(patch: Partial<EngineState>) {
     this.state = { ...this.state, ...patch };
+    if ("entries" in patch || "speakers" in patch || "avatars" in patch || "usage" in patch) this.rev++;
     for (const fn of this.listeners) fn();
+  }
+
+  revision = () => this.rev;
+
+  private newId() {
+    return `${this.meeting?.id ?? "e"}.${this.nextId++}`;
   }
 
   private setAction(id: string, action: Action) {
     this.set({ entries: this.state.entries.map((e) => (e.id === id ? { ...e, action } : e)) });
+    if (action.kind === "pending" || !this.deps.log) return;
+    const e = this.entry(id);
+    if (!e) return;
+    this.deps.log({
+      t: "outcome",
+      at: this.deps.now(),
+      meeting: this.meeting?.id ?? null,
+      entry: id,
+      speaker: e.speaker,
+      text: e.text,
+      mode: this.deps.settings().listenMode,
+      kind: action.kind,
+      ...(describeAction(action) ? { detail: describeAction(action) } : {}),
+      ...(e.missed ? { missed: true } : {}),
+      ...(e.typed ? { typed: true } : {}),
+    });
   }
 
   private entry(id: string) {
@@ -232,7 +371,10 @@ export class Engine {
 
   /** Runs a step after every step before it, and turns a failure into an error card. */
   private enqueue(id: string | null, step: () => Promise<void>) {
-    this.queue = this.queue.then(step).catch((e) => {
+    this.queue = this.queue.then(() => {
+      this.working = id;
+      return step();
+    }).catch((e) => {
       if (id) this.setAction(id, { kind: "error", message: normalizeError(e) });
     });
   }
@@ -242,8 +384,55 @@ export class Engine {
 
   /* ---------- inputs ---------- */
 
+  /**
+   * The Meet tab's state. Leaving the call and coming back (or a closed tab and a new one)
+   * leaves a marker for the stretch Scribe heard nothing, so nobody thinks it ignored them.
+   */
   setMeet(meet: MeetState | null) {
+    const now = this.deps.now();
+    const inCall = !!meet && (meet.status === "in-call" || meet.status === "listening");
+    if (inCall) {
+      const joined = meet.joinedAt ?? now;
+      let from = this.leftAt;
+      // The tab knows when it left, which is later than what the panel last saw if it was closed meanwhile.
+      if (meet.leftAt && meet.leftAt < joined && (from === null || meet.leftAt > from)) from = meet.leftAt;
+      const fresh = this.lastGapEnd === null || joined > this.lastGapEnd;
+      if (this.meeting && from !== null && from >= this.meeting.startedAt && fresh && joined - from >= GAP_MIN_MS) this.addGap(from, joined);
+      this.leftAt = null;
+      this.lastInCall = now;
+    } else if (this.wasInCall) {
+      this.leftAt = now;
+    }
+    this.wasInCall = inCall;
+    // Meet shows the title a moment after the code.
+    if (this.meeting && !this.meeting.title && meet?.title) this.meeting = { ...this.meeting, title: meet.title };
     this.set({ meet });
+  }
+
+  private addGap(from: number, to: number) {
+    this.lastGapEnd = to;
+    const entry: Entry = {
+      id: this.newId(),
+      speaker: "Scribe",
+      text: `Scribe heard nothing from ${clock(from)} to ${clock(to)}.`,
+      at: to,
+      addressed: false,
+      typed: false,
+      source: "gap",
+      action: { kind: "skipped" },
+    };
+    this.set({ entries: this.insertByTime(this.state.entries, [entry]) });
+  }
+
+  /** Puts entries where they belong by time; ties keep the order they came in. */
+  private insertByTime(entries: Entry[], add: Entry[]): Entry[] {
+    const out = [...entries];
+    for (const e of add) {
+      let i = out.length;
+      while (i > 0 && out[i - 1]!.at > e.at) i--;
+      out.splice(i, 0, e);
+    }
+    return out;
   }
 
   setPartial(partial: { speaker: string; text: string } | null) {
@@ -270,12 +459,127 @@ export class Engine {
   addLine(speaker: string, text: string, at: number, typed = false): string {
     const entry = this.pushLine(speaker, text, at, typed);
     this.enqueue(entry.id, () => this.handle(entry.id));
+    this.maybeSummarize();
     return entry.id;
+  }
+
+  /**
+   * Lines the Meet tab heard while the panel was closed. They're shown and kept, in time order,
+   * but never run as requests: "Scribe, delete that" from ten minutes ago mustn't fire now.
+   * In Record all they still go to the transcript, which is a record, not a request.
+   */
+  addMissed(lines: { speaker: string; text: string; at: number }[]) {
+    const have = new Set(this.state.entries.map((e) => `${e.speaker}\u0000${e.at}\u0000${e.text}`));
+    const add: Entry[] = [];
+    const speakers = { ...this.state.speakers };
+    for (const l of [...lines].sort((a, b) => a.at - b.at)) {
+      const speaker = this.who(l.speaker);
+      if (!l.text.trim() || have.has(`${speaker}\u0000${l.at}\u0000${l.text}`)) continue;
+      add.push({ id: this.newId(), speaker, text: l.text, at: l.at, addressed: false, typed: false, missed: true, action: { kind: "skipped" } });
+      speakers[speaker] = (speakers[speaker] ?? 0) + 1;
+    }
+    if (!add.length) return;
+    this.set({ entries: this.insertByTime(this.state.entries, add), speakers });
+    const s = this.deps.settings();
+    if (s.listenMode === "record") {
+      for (const e of add) {
+        const w = detectWake(e.text, s.wakeWord);
+        if ((s.roles[e.speaker] ?? s.defaultRole) !== "ignore" && !(w.addressed && looksLikeControl(w.command))) this.recordLine(e);
+      }
+    }
+    this.maybeSummarize();
+  }
+
+  /* ---------- the saved meeting ---------- */
+
+  meetingCode = () => this.meeting?.code ?? null;
+
+  /**
+   * A new meeting for this Meet code. Lines from before the code was known are kept;
+   * lines from another meeting (already saved) are not.
+   */
+  beginMeeting(code: string, title: string | null) {
+    const now = this.deps.now();
+    const keep = this.meeting === null;
+    this.meeting = { id: `m${now.toString(36)}${Math.random().toString(36).slice(2, 5)}`, code, title, startedAt: now };
+    this.lastInCall = this.wasInCall ? now : null;
+    this.leftAt = null;
+    this.lastGapEnd = null;
+    this.summary = null;
+    this.summaryFailedAt = 0;
+    this.transcriptTries.clear();
+    this.nextId = 1;
+    if (!keep) {
+      this.awaiting = null;
+      this.set({ entries: [], speakers: {}, partial: null, usage: { inputTokens: 0, outputTokens: 0 } });
+    } else {
+      this.rev++;
+    }
+  }
+
+  /**
+   * A saved meeting, back in the panel. Work that was running when the panel closed is marked
+   * stopped (spoken lines can be retried); waiting approvals and Docs suggestions come back as
+   * they were; transcript lines that hadn't been written yet are sent again.
+   */
+  loadMeeting(m: SavedMeeting) {
+    const carry = this.meeting === null ? this.state.entries : [];
+    this.meeting = { id: m.id, code: m.code, title: m.title, startedAt: m.startedAt };
+    this.nextId = Math.max(1, m.nextId);
+    this.summary = m.summary ?? null;
+    this.summaryFailedAt = 0;
+    this.lastInCall = m.lastInCall;
+    // The panel was closed, so as far as it knows, the meeting was last seen then.
+    this.leftAt = m.leftAt ?? m.lastInCall;
+    this.lastGapEnd = m.lastGapEnd;
+    this.wasInCall = false;
+    this.transcriptTries.clear();
+    const restored = m.entries.map((e) => restoreEntry(e));
+    const speakers = { ...m.speakers };
+    for (const e of carry) if (!e.source) speakers[e.speaker] = (speakers[e.speaker] ?? 0) + 1;
+    this.set({ entries: this.insertByTime(restored, carry), speakers, avatars: { ...m.avatars, ...this.state.avatars }, usage: m.usage });
+    const file = transcriptFile(this.deps.settings());
+    for (const e of restored) {
+      if (e.action.kind !== "transcript" || e.action.status !== "queued") continue;
+      if (file) this.queueTranscript(e.id, e.action.line, file);
+      else this.setAction(e.id, { ...e.action, status: "failed", message: "No Doc to write the transcript to." });
+    }
+    // An in-call state that arrived before the meeting was loaded: check it for a gap now.
+    if (this.state.meet) this.setMeet(this.state.meet);
+  }
+
+  /** "Delete saved meetings": the panel starts over, and the same call continues as a new, empty meeting. */
+  clearMeeting() {
+    const m = this.meeting;
+    this.meeting = null;
+    this.awaiting = null;
+    this.set({ entries: [], speakers: {}, partial: null, usage: { inputTokens: 0, outputTokens: 0 } });
+    if (m) this.beginMeeting(m.code, m.title);
+  }
+
+  /** What to save. Null until the Meet code is known. Pictures that were already saved to Drive are left out. */
+  snapshot(): SavedMeeting | null {
+    if (!this.meeting) return null;
+    const now = this.deps.now();
+    return {
+      v: 1,
+      ...this.meeting,
+      updatedAt: now,
+      lastInCall: this.wasInCall ? now : this.lastInCall,
+      leftAt: this.leftAt,
+      lastGapEnd: this.lastGapEnd,
+      entries: this.state.entries.map(saveableEntry),
+      speakers: this.state.speakers,
+      avatars: this.state.avatars,
+      usage: this.state.usage,
+      summary: this.summary,
+      nextId: this.nextId,
+    };
   }
 
   private pushLine(rawSpeaker: string, text: string, at: number, typed: boolean, addressed = typed): Entry {
     const speaker = this.who(rawSpeaker);
-    const entry: Entry = { id: `e${this.nextId++}`, speaker, text, at, addressed, typed, action: { kind: "pending", step: "Reading" } };
+    const entry: Entry = { id: this.newId(), speaker, text, at, addressed, typed, action: { kind: "pending", step: "Reading" } };
     this.set({
       entries: [...this.state.entries, entry],
       speakers: { ...this.state.speakers, [speaker]: (this.state.speakers[speaker] ?? 0) + 1 },
@@ -292,7 +596,7 @@ export class Engine {
     const speaker = this.who(rawSpeaker);
     const s = this.deps.settings();
     const wake = detectWake(text, s.wakeWord);
-    if (!wake.addressed || !isResume(wake.command) || (s.roles[speaker] ?? s.defaultRole) === "ignore") return null;
+    if (!(wake.addressed || wake.maybe) || !isResume(wake.command) || (s.roles[speaker] ?? s.defaultRole) === "ignore") return null;
     const entry = this.pushLine(speaker, text, at, false, true);
     this.enqueue(entry.id, () => this.applyControl(entry, { mode: null, file: null, approval: null, listening: "resume", recording: null }));
     return entry.id;
@@ -347,7 +651,7 @@ export class Engine {
   }
 
   private addSourceEntry(speaker: string, text: string, at: number, source: "screen" | "recording"): Entry {
-    const entry: Entry = { id: `e${this.nextId++}`, speaker, text, at, addressed: false, typed: false, source, action: { kind: "pending", step: "Saving" } };
+    const entry: Entry = { id: this.newId(), speaker, text, at, addressed: false, typed: false, source, action: { kind: "pending", step: "Saving" } };
     this.set({ entries: [...this.state.entries, entry] });
     return entry;
   }
@@ -371,6 +675,7 @@ export class Engine {
     const e = this.entry(id);
     if (!e || e.action.kind !== "clarify") return;
     const command = e.action.command;
+    this.logFeedback(id, "answer", choice);
     this.setAction(id, { kind: "pending", step: "Rereading with your answer" });
     this.enqueue(id, () => this.runCommand(e, command, choice));
   }
@@ -380,6 +685,7 @@ export class Engine {
     const e = this.entry(id);
     if (!e) return;
     const a = e.action;
+    if (a.kind === "proposal" || (a.kind === "transcript" && a.status === "waiting")) this.logFeedback(id, "approve");
     if (a.kind === "proposal") {
       this.setAction(id, { kind: "pending", step: "Writing" });
       this.enqueue(id, () => this.commit(id, a.proposal));
@@ -392,7 +698,16 @@ export class Engine {
   /** Runs a line that failed again, as if it had just been said. Screenshots and recordings can't be redone. */
   retry(id: string) {
     const e = this.entry(id);
+    if (e?.action.kind === "transcript" && e.action.status === "failed") {
+      const file = transcriptFile(this.deps.settings());
+      if (file) {
+        this.transcriptTries.delete(id);
+        this.queueTranscript(id, e.action.line, file);
+      }
+      return;
+    }
     if (!e || e.action.kind !== "error" || e.source) return;
+    this.logFeedback(id, "retry", e.action.message);
     this.setAction(id, { kind: "pending", step: "Trying again" });
     this.enqueue(id, () => this.handle(id));
   }
@@ -406,6 +721,7 @@ export class Engine {
   discard(id: string) {
     const e = this.entry(id);
     if (!e) return;
+    if (e.action.kind === "proposal" || (e.action.kind === "transcript" && e.action.status === "waiting")) this.logFeedback(id, "discard");
     if (e.action.kind === "proposal") this.setAction(id, { kind: "discarded", what: `${e.action.proposal.file.title}` });
     else if (e.action.kind === "transcript" && e.action.status === "waiting") this.setAction(id, { kind: "discarded", what: "Transcript" });
   }
@@ -415,6 +731,7 @@ export class Engine {
     const e = this.entry(id);
     if (!e || e.action.kind !== "written" || e.action.result.status !== "waiting" || e.action.decision) return;
     const written = e.action;
+    this.logFeedback(id, accept ? "accept" : "reject", `${written.result.where}: ${written.result.add}`);
     const target = this.deps.targets[written.proposal.file.kind];
     this.enqueue(null, async () => {
       try {
@@ -522,8 +839,67 @@ export class Engine {
 
   private recent(beforeId: string) {
     const idx = this.state.entries.findIndex((e) => e.id === beforeId);
-    return this.state.entries.slice(Math.max(0, idx - 6), idx).map((e) => `${e.speaker}: ${e.text}`);
+    return this.state.entries.slice(Math.max(0, idx - RECENT_LINES), idx).map((e) => `${e.speaker}: ${e.text}`);
   }
+
+  /** Lines before the last 6 (before `beforeId`, or before the end), newer than the summary. */
+  private olderLines(beforeId?: string): Line[] {
+    const all = this.state.entries;
+    const end = beforeId ? all.findIndex((e) => e.id === beforeId) : all.length;
+    const stop = Math.max(0, (end < 0 ? all.length : end) - RECENT_LINES);
+    const from = this.summary ? all.findIndex((e) => e.id === this.summary!.through) + 1 : 0;
+    return all.slice(Math.max(0, from), stop).map((e) => ({ id: e.id, speaker: e.speaker, text: e.text, at: e.at }));
+  }
+
+  /** Tokens for older lines and the summary, from the model in use. */
+  private async budget(): Promise<number> {
+    const s = this.deps.settings();
+    const id = this.state.provider ?? (await this.deps.resolveProvider(s));
+    if (!id) return 0;
+    const window = this.deps.contextWindow ? await this.deps.contextWindow(id, s).catch(() => knownWindow(id, s.models[id] ?? "")) : knownWindow(id, s.models[id] ?? "");
+    return budgetFor(window);
+  }
+
+  /** The "Earlier in the meeting" block for a request. */
+  private async earlier(beforeId: string, query?: string): Promise<string> {
+    const lines = this.olderLines(beforeId);
+    if (!lines.length && !this.summary) return "";
+    return earlierBlock(lines, { budget: await this.budget(), query, summary: this.summary?.text });
+  }
+
+  /**
+   * In the background, never in a request's way: when the older lines no longer fit the budget,
+   * the oldest are folded into the running summary. Record all uses no model, so it never runs there.
+   */
+  private maybeSummarize() {
+    const summarize = this.deps.ai.summarizeMeeting;
+    if (!summarize || this.summarizing || this.deps.now() - this.summaryFailedAt < SUMMARY_BACKOFF_MS) return;
+    if (this.deps.settings().listenMode === "record" || this.state.meet?.paused) return;
+    this.summarizing = (async () => {
+      try {
+        const budget = await this.budget();
+        const fold = linesToFold(this.olderLines(), budget);
+        if (!fold.length) return;
+        const s = this.deps.settings();
+        const id = await this.deps.resolveProvider(s);
+        if (!id) return;
+        const { summary, usage } = await summarize(this.deps.model(id, s), { previous: this.summary?.text ?? null, lines: fold.map(lineText) });
+        this.addUsage(usage);
+        if (summary) this.summary = { text: summary, through: fold[fold.length - 1]!.id };
+        this.rev++;
+      } catch {
+        this.summaryFailedAt = this.deps.now();
+      } finally {
+        this.summarizing = null;
+      }
+    })();
+  }
+
+  /** Waits for a summary in progress. Used by tests. */
+  summaryIdle = () => this.summarizing ?? Promise.resolve();
+
+  /** Used by tests and the panel. */
+  summaryText = () => this.summary?.text ?? null;
 
   private async handle(id: string) {
     const entry = this.entry(id);
@@ -538,19 +914,30 @@ export class Engine {
     if (s.listenMode === "record" && !entry.typed) {
       // Record all writes lines as they are, except requests to change Scribe itself.
       const w = detectWake(entry.text, s.wakeWord);
-      if (!(w.addressed && looksLikeControl(w.command))) return this.recordLine(entry);
+      if (!((w.addressed || w.maybe) && looksLikeControl(w.command))) return this.recordLine(entry);
     }
 
     const wake = entry.typed ? { addressed: true, command: entry.text } : detectWake(entry.text, s.wakeWord);
     if (wake.wakeOnly) {
-      this.awaiting = { speaker: entry.speaker, until: entry.at + FOLLOW_UP_MS };
+      this.awaiting = { speaker: entry.speaker, until: entry.at + FOLLOW_UP_MS, ...("maybe" in wake && wake.maybe ? { maybe: true } : {}) };
       return this.setAction(id, { kind: "skipped" });
     }
+    const maybe = "maybe" in wake && wake.maybe === true;
     // "Scribe," … pause … "add Postgres 16 to decisions": the same speaker's next line is the request,
     // even if someone else says something in between.
     const follow = this.awaiting && entry.at <= this.awaiting.until && this.awaiting.speaker === entry.speaker ? this.awaiting : null;
-    if (follow || wake.addressed || (this.awaiting && entry.at > this.awaiting.until)) this.awaiting = null;
-    const command = wake.addressed ? wake.command : follow ? entry.text.trim() : null;
+    if (follow || wake.addressed || maybe || (this.awaiting && entry.at > this.awaiting.until)) this.awaiting = null;
+    let command = wake.addressed || maybe ? wake.command : follow ? entry.text.trim() : null;
+    // The name was only a sound-alike ("Subscribe! …", "Describe …"): one short AI call decides whether the
+    // line asks Scribe to do something, or is ordinary talk that happens to start that way.
+    if (command && (maybe || (!wake.addressed && follow?.maybe))) {
+      const checked = await this.confirmed(entry, maybe ? entry.text : `${s.wakeWord}, ${command}`, command);
+      if (checked === null) {
+        if (s.listenMode === "smart" && words(entry.text) >= 3) return this.runSmart(entry);
+        return this.setAction(id, { kind: "skipped" });
+      }
+      command = checked;
+    }
     if (command) {
       this.set({ entries: this.state.entries.map((e) => (e.id === id ? { ...e, addressed: true } : e)) });
       return this.runCommand({ ...entry, addressed: true }, command);
@@ -558,6 +945,28 @@ export class Engine {
     // Smart mode needs no wake word, so short requests ("Take a screenshot.") count too.
     if (s.listenMode === "smart" && words(entry.text) >= 3) return this.runSmart(entry);
     this.setAction(id, { kind: "skipped" });
+  }
+
+  /**
+   * The request to run, or null when the line wasn't for Scribe. Without a checker or a model,
+   * the sound-alike counts, as it did before the check existed.
+   */
+  private async confirmed(entry: Entry, text: string, command: string): Promise<string | null> {
+    const check = this.deps.ai.confirmRequest;
+    if (!check) return command;
+    this.setAction(entry.id, { kind: "pending", step: "Checking it was for Scribe" });
+    const model = await this.model();
+    if (!model) return null;
+    try {
+      const s = this.deps.settings();
+      const { confirmation, usage } = await check(model, { speaker: entry.speaker, text, wakeWord: s.wakeWord }, { recent: this.recent(entry.id), files: s.files.map((f) => f.title) });
+      this.addUsage(usage);
+      // The person's own words run, not the AI's rewording: the credit line quotes them.
+      return confirmation.forScribe ? command : null;
+    } catch {
+      // Unsure is not a request: nothing is changed on a guess.
+      return null;
+    }
   }
 
   /** Removes a line as if it was never heard. */
@@ -591,10 +1000,26 @@ export class Engine {
     }
   }
 
-  /** Writes queued transcript lines in one batch per file. */
+  /** Back online: transcript lines that failed get their tries back and go again. */
+  retryTranscripts() {
+    const failed = this.state.entries.filter((e) => e.action.kind === "transcript" && e.action.status === "failed");
+    for (const e of failed) this.retry(e.id);
+  }
+
+  /**
+   * Writes queued transcript lines in one batch per file. Lines that failed before go first,
+   * a few times, so a dropped connection doesn't leave holes in the transcript.
+   */
   flushTranscript() {
     this.flushScheduled = false;
-    const batch = this.transcriptQueue.splice(0);
+    const queued = new Set(this.transcriptQueue.map((b) => b.id));
+    const file = transcriptFile(this.deps.settings());
+    const again = file
+      ? this.state.entries
+          .filter((e) => e.action.kind === "transcript" && e.action.status === "failed" && !queued.has(e.id) && (this.transcriptTries.get(e.id) ?? 0) < TRANSCRIPT_TRIES)
+          .map((e) => ({ id: e.id, line: (e.action as { line: string }).line, file }))
+      : [];
+    const batch = [...again, ...this.transcriptQueue.splice(0)];
     if (!batch.length) return;
     this.enqueue(null, async () => {
       const byFile = new Map<string, typeof batch>();
@@ -604,9 +1029,15 @@ export class Engine {
         try {
           await this.deps.appendTranscript(file, items.map((i) => i.line));
           this.invalidate(file.id);
-          for (const i of items) this.setAction(i.id, { kind: "transcript", status: "written", line: i.line, fileTitle: file.title });
+          for (const i of items) {
+            this.transcriptTries.delete(i.id);
+            this.setAction(i.id, { kind: "transcript", status: "written", line: i.line, fileTitle: file.title });
+          }
         } catch (e) {
-          for (const i of items) this.setAction(i.id, { kind: "transcript", status: "failed", line: i.line, fileTitle: file.title, message: message(e) });
+          for (const i of items) {
+            this.transcriptTries.set(i.id, (this.transcriptTries.get(i.id) ?? 0) + 1);
+            this.setAction(i.id, { kind: "transcript", status: "failed", line: i.line, fileTitle: file.title, message: message(e) });
+          }
         }
       }
     });
@@ -621,13 +1052,13 @@ export class Engine {
     if (!model) return this.setAction(entry.id, { kind: "error", message: this.state.providerError ?? "No AI is ready." });
 
     this.setAction(entry.id, { kind: "pending", step: "Working out the request" });
-    const ctx = { outline, recent: this.recent(entry.id), screen: this.screenLine(), state: this.stateLine() };
+    const ctx = { outline, recent: this.recent(entry.id), earlier: (await this.earlier(entry.id, command)) || undefined, screen: this.screenLine(), state: this.stateLine() };
     const { intent, usage } = await this.deps.ai.parseCommand(model, { speaker: entry.speaker, command, clarification }, ctx);
     this.addUsage(usage);
     await this.applyIntent(entry, command, intent, ctx, model);
   }
 
-  private async applyIntent(entry: Entry, command: string, intent: Intent, ctx: { outline: string; recent: string[]; screen?: string }, model: AiModel) {
+  private async applyIntent(entry: Entry, command: string, intent: Intent, ctx: { outline: string; recent: string[]; earlier?: string; screen?: string }, model: AiModel) {
     const writes = intent.action === "append" || intent.action === "replace" || intent.action === "new_slide" || intent.action === "comment";
     if (writes && intent.screen === "image") return this.screenshotCommand(entry, command, intent);
     if (writes && intent.screen === "read") return this.readCommand(entry, command, intent, ctx);
@@ -731,7 +1162,9 @@ export class Engine {
     if (!model) return this.setAction(entry.id, { kind: "skipped" });
     this.setAction(entry.id, { kind: "pending", step: "Checking if this should be recorded" });
     const outline = await this.describeFiles(false);
-    const { decision, usage } = await this.deps.ai.decideSmart(model, { speaker: entry.speaker, text: entry.text }, { outline, recent: this.recent(entry.id), state: this.stateLine() });
+    // Smart mode judges every line, so it gets only the short summary, not the older lines.
+    const earlier = this.summary ? `Summary of what came before (Scribe's notes, not exact words):\n${this.summary.text}` : undefined;
+    const { decision, usage } = await this.deps.ai.decideSmart(model, { speaker: entry.speaker, text: entry.text }, { outline, recent: this.recent(entry.id), earlier, state: this.stateLine() });
     this.addUsage(usage);
     if (decision.action === "none") return this.setAction(entry.id, { kind: "skipped" });
     if (decision.action === "request") {
@@ -906,5 +1339,56 @@ export class Engine {
     }
     if (failure || !result) throw new Error([message(failure), ...warnings].join(" "));
     return { ...result, add: `${result.add} · ${saved.link}` };
+  }
+}
+
+/** An entry as saved: pictures already in Drive are dropped, a recording waiting for approval can't be kept. */
+function saveableEntry(e: Entry): Entry {
+  const a = e.action;
+  if (a.kind === "proposal") {
+    const m = a.proposal.media;
+    if (m && typeof m.source !== "string") return { ...e, action: { kind: "error", message: "This recording was waiting for approval when the panel closed and couldn't be kept. Record it again." } };
+    return { ...e, action: { ...a, proposal: { ...a.proposal, seen: undefined, media: m ? { ...m, preview: undefined } : undefined } } };
+  }
+  if (a.kind === "written") {
+    const m = a.proposal.media;
+    return { ...e, action: { ...a, proposal: { ...a.proposal, seen: undefined, media: m ? { ...m, source: "", preview: undefined } : undefined } } };
+  }
+  return e;
+}
+
+/** An entry coming back from storage. */
+function restoreEntry(e: Entry): Entry {
+  const a = e.action;
+  if (a.kind === "pending") return { ...e, action: { kind: "error", message: e.source ? STOPPED : `${STOPPED} Retry runs it again.` } };
+  if (a.kind === "proposal" && a.proposal.media?.kind === "image" && typeof a.proposal.media.source === "string") {
+    return { ...e, action: { ...a, proposal: { ...a.proposal, media: { ...a.proposal.media, preview: a.proposal.media.source } } } };
+  }
+  return e;
+}
+
+/** One line about what happened to a line, for the AI log. */
+function describeAction(a: Action): string | undefined {
+  switch (a.kind) {
+    case "error":
+      return a.message;
+    case "ignored":
+      return a.reason;
+    case "answer":
+      return a.answer;
+    case "clarify":
+      return `${a.question} [${a.options.join(" | ")}]`;
+    case "proposal":
+      return `${a.proposal.file.title} · ${a.proposal.write.action} · ${a.proposal.write.section ?? ""} · ${a.proposal.write.text ?? a.proposal.write.replaceWith ?? ""}`;
+    case "written":
+      return `${a.result.status} · ${a.proposal.file.title} › ${a.result.where} · ${a.result.add}${a.decision ? ` · ${a.decision}` : ""}`;
+    case "transcript":
+      return `${a.status} · ${a.fileTitle}${a.message ? ` · ${a.message}` : ""}`;
+    case "control":
+      return [...a.done, ...a.failed].join(" ");
+    case "discarded":
+      return a.what;
+    default:
+      return undefined;
   }
 }

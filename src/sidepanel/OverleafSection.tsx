@@ -10,6 +10,7 @@ import { GlassButton } from "@/components/glasscn/ui/glasscn/glass-button";
 import { GlassItem } from "@/components/glasscn/ui/glasscn/glass-item";
 
 import { Logo } from "./logos";
+import { PickList } from "./shared";
 
 const PROJECTS = "https://www.overleaf.com/project";
 
@@ -41,37 +42,47 @@ export function OverleafSection(props: { connected: FileRef[]; onAdd: (f: FileRe
     });
 
   return (
-    <GlassItem className="gap-3 px-3 py-3" glassVariant="subtle" size="sm">
-      <ItemMedia className="[&_svg]:!size-7">
-        <Logo name="overleaf" />
-      </ItemMedia>
-      <ItemContent className="min-w-0">
-        <ItemTitle>Overleaf</ItemTitle>
-        <ItemDescription className="truncate">
-          {denied ? "Allow Overleaf when Chrome asks" : unused.length ? "Projects open in Chrome" : "Open a project to add it"}
-        </ItemDescription>
-      </ItemContent>
-      {unused.length === 0 && (
-        <ItemActions>
-          <GlassButton onClick={() => void chrome.tabs.create({ url: PROJECTS })} size="xs">
-            <ExternalLinkIcon />
-            Open
-          </GlassButton>
-        </ItemActions>
-      )}
+    <div className="flex flex-col gap-2">
+      <GlassItem className="gap-3.5 px-4 py-3.5" glassVariant="subtle">
+        <ItemMedia className="[&_svg]:!size-9">
+          <Logo name="overleaf" />
+        </ItemMedia>
+        <ItemContent className="min-w-0">
+          <ItemTitle>Overleaf</ItemTitle>
+          <ItemDescription className="line-clamp-2">
+            {denied
+              ? "Allow Overleaf when Chrome asks"
+              : unused.length
+                ? `${unused.length} ${unused.length === 1 ? "project" : "projects"} open in Chrome`
+                : "Open a project to add it"}
+          </ItemDescription>
+        </ItemContent>
+        {unused.length === 0 && (
+          <ItemActions>
+            <GlassButton onClick={() => void chrome.tabs.create({ url: PROJECTS })} size="lg">
+              <ExternalLinkIcon />
+              Open
+            </GlassButton>
+          </ItemActions>
+        )}
+      </GlassItem>
       {unused.length > 0 && (
-        <div className="flex basis-full flex-col gap-1 pl-11">
-          {unused.map((p) => (
-            <div className="flex items-center gap-2 text-xs" key={p.id}>
-              <span className="min-w-0 flex-1 truncate text-muted-foreground">{p.title}</span>
-              <GlassButton glassVariant="subtle" onClick={() => add(p)} size="xs">
+        <PickList
+          items={unused.map((p) => ({
+            key: p.id,
+            logo: <Logo name="overleaf" />,
+            title: p.title,
+            description: "LaTeX project · open in a tab",
+            action: (
+              <GlassButton onClick={() => add(p)} size="lg">
                 <PlusIcon />
                 Add
               </GlassButton>
-            </div>
-          ))}
-        </div>
+            ),
+          }))}
+          label="Overleaf projects open in Chrome"
+        />
       )}
-    </GlassItem>
+    </div>
   );
 }

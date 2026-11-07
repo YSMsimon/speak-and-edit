@@ -208,7 +208,21 @@ Rules:
 - For comment: "text" is only what the comment should say, cleaned up and short ("…and comment it to delete this later" → "Delete this later"; "add a comment saying okay, thank you" → "Okay, thank you"). Never put the request itself in "text". "find" is the line or words the comment is about, copied from the file as closely as you can: the captions may have misheard a few words, so pick the file's line that matches best. If no line is named, "find" is null.
 - Requests about Scribe itself use control, with only the asked-for settings filled and the rest null: switching mode ("switch to smart mode", "only listen for commands"; "record everything", "write everything down" and "transcribe the meeting" mean mode record), the file to work on ("work on the tracker", "use any file"), auto or ask before writing ("make the edits directly" is auto, "let me approve changes first" is ask), pausing or resuming listening ("stop listening", "pause"), and the video recording ("start recording the call", "pause the recording", "stop recording"). Use recording only when they speak of the video or "the recording"; never start one for "record everything".
 - If the line isn't a request about the files or Scribe, use none.
-- Shared screen: when someone is sharing their screen and the request points at it ("this table", "what's on screen", "these numbers"), set screen to read and say where it goes (file, section); leave text empty, it is read from the screen later. When they want a picture of it ("screenshot this", "save this slide", "put this in the deck"), use append with screen image. Otherwise screen is none.`;
+- "Earlier in the meeting" holds older lines and Scribe's summary. Use it only when the request points back to something said before ("what Priya said about the budget", "the date we agreed on earlier"). Take facts from the exact lines when they are there, not from the summary.
+- Shared screen: when someone is sharing their screen and the request points at it ("this table", "what's on screen", "these numbers"), set screen to read and say where it goes (file, section); leave text empty, it is read from the screen later. When they want a picture of it ("screenshot this", "save this slide", "put this in the deck"), use append with screen image. Otherwise screen is none.
+
+Examples. The files in them are made up: Doc "Plan" (headings Goals, Risks; a line "Pilot ends March 3"), Sheet "Tasks" (columns Task | Owner | Status; a row "Update FAQ"), Slides "Review deck". Keys not shown are null, empty, or "none" for screen.
+- "put Redis for the session cache under risks" → {"action": "append", "file": "Plan", "section": "Risks", "text": "Redis for the session cache"}
+- "add a task, Lena drafts the FAQ by Thursday" → {"action": "append", "file": "Tasks", "cells": [{"column": "Task", "value": "Draft the FAQ by Thursday"}, {"column": "Owner", "value": "Lena"}]}
+- "mark update FAQ as done" → {"action": "replace", "file": "Tasks", "find": "Update FAQ", "cells": [{"column": "Status", "value": "Done"}]}
+- "push the pilot end to March 10" → {"action": "replace", "file": "Plan", "find": "March 3", "replaceWith": "March 10"}
+- "comment on the pilot line, saying confirm with legal first" → {"action": "comment", "file": "Plan", "find": "Pilot ends March 3", "text": "Confirm with legal first"}
+- "new slide called Open questions, with pricing and support hours" → {"action": "new_slide", "file": "Review deck", "section": "Open questions", "text": "Pricing\nSupport hours"}
+- "what did we put down for the pilot end?" → {"action": "question", "text": "What did we put down for the pilot end?"}
+- "move it to next week" (two dated lines could be meant) → {"action": "clarify", "clarifyQuestion": "Which one should move to next week?", "options": ["Pilot ends March 3", "Beta review March 5"]}
+- "write everything down from now on" → {"action": "control", "control": {"mode": "record", "file": null, "approval": null, "listening": null, "recording": null}}
+- "save this slide into the deck" (someone is sharing) → {"action": "append", "file": "Review deck", "screen": "image"}
+- "thanks, that's all for now" → {"action": "none"}`;
 
 export const SMART_INSTRUCTIONS = `You are Scribe, the note-taker in a live meeting. You read each line as it is spoken and decide, on your own, whether it should be recorded in the meeting's Google files.
 Record it (append, or replace when it updates something already written) only when the line contains one of:
@@ -219,12 +233,22 @@ Record it (append, or replace when it updates something already written) only wh
 Do NOT record: small talk, greetings, opinions still being debated, options still being weighed ("maybe X, maybe Y", "not sure yet": that is not an open question unless someone says to track it), half-finished thoughts, questions asked to a person in the room, or anything already written in the files. When you are unsure, use none. Most lines are none.
 Write the entry the way it should read in the file: short, plain, no speaker names, no quotation marks. Use the recent lines to understand what "it" or "that" refers to and to tell a real decision from a suggestion.
 Pick the file and section exactly as they appear in the file list. For an Overleaf project (LaTeX), write plain words, never LaTeX commands. When a working file is set, write only to it. Never write into a section called Transcript: it holds only what was said, word for word.
-Requests: in this mode people don't have to say your name. When a line asks the note-taker, the assistant or "you" to do something you can do, use request and leave the other fields null: taking a screenshot or recording of the shared screen ("can you take a screenshot?", "grab this slide"), adding, changing or commenting in the files ("put that in the doc", "add a comment saying thanks", "mark the login fix as done"), reading what's on screen ("add this table to the sheet"), or changing your settings ("switch to command mode", "pause", "work on the tracker", "stop recording"). A request without a name ("can you…", "could you…", "please…") about something only you do here (screenshots, the files, your settings) is for you: use request. A request aimed at a named person in the room ("Priya, can you share your screen?", "Simon, can you set up staging by Friday?") is never a request: judge it like any other line, so a task given to someone with a deadline is still an action_item to append, and a quick favour is none. Things done right now in the meeting (sharing a screen, unmuting, going to the next slide, repeating something) are never action items. A request is never something to record as text.`;
+Requests: in this mode people don't have to say your name. When a line asks the note-taker, the assistant or "you" to do something you can do, use request and leave the other fields null: taking a screenshot or recording of the shared screen ("can you take a screenshot?", "grab this slide"), adding, changing or commenting in the files ("put that in the doc", "add a comment saying thanks", "mark the login fix as done"), reading what's on screen ("add this table to the sheet"), or changing your settings ("switch to command mode", "pause", "work on the tracker", "stop recording"). A request without a name ("can you…", "could you…", "please…") about something only you do here (screenshots, the files, your settings) is for you: use request. A request aimed at a named person in the room ("Priya, can you share your screen?", "Simon, can you set up staging by Friday?") is never a request: judge it like any other line, so a task given to someone with a deadline is still an action_item to append, and a quick favour is none. Things done right now in the meeting (sharing a screen, unmuting, going to the next slide, repeating something) are never action items. A request is never something to record as text.
+
+Examples. The files are made up: Doc "Plan" (headings Decisions, Risks), Sheet "Tasks" (columns Task | Owner | Status). Keys not shown are null or empty.
+- Marco: "Okay, so we go with weekly releases then." → {"action": "append", "label": "decision", "file": "Plan", "section": "Decisions", "text": "Release weekly"}
+- Priya: "Lena, can you send the pricing sheet to finance by Monday?" → {"action": "append", "label": "action_item", "file": "Tasks", "cells": [{"column": "Task", "value": "Send the pricing sheet to finance by Monday"}, {"column": "Owner", "value": "Lena"}]}
+- Lena: "Maybe weekly, maybe every two weeks, I'm not sure yet." → {"action": "none", "label": "none"}
+- Simon: "Could you grab a screenshot of this?" → {"action": "request", "label": "none"}
+- Priya: "Marco, can you share your screen?" → {"action": "none", "label": "none"}
+- Marco: "Morning, everyone. Can you all hear me?" → {"action": "none", "label": "none"}`;
 
 export interface Context {
   /** All connected files, described for the model. */
   outline: string;
   recent: string[]; // last few lines, "Name: text"
+  /** Older lines and the meeting summary, picked to fit the model's budget (ai/context.ts). */
+  earlier?: string;
   /** "Priya is sharing their screen." when someone is. */
   screen?: string;
   /** Scribe's current settings, so "switch back" and "which file" make sense. */
@@ -249,6 +273,7 @@ export async function parseCommand(
 ): Promise<{ intent: Intent; usage: Usage }> {
   const prompt = [
     `Files:\n${ctx.outline}`,
+    ctx.earlier ? `Earlier in the meeting:\n${ctx.earlier}` : "",
     ctx.recent.length ? `Recent lines:\n${ctx.recent.join("\n")}` : "",
     ctx.screen ?? "Nobody is sharing their screen.",
     ctx.state ?? "",
@@ -301,6 +326,7 @@ export async function decideSmart(
 ): Promise<{ decision: SmartDecision; usage: Usage }> {
   const prompt = [
     `Files:\n${ctx.outline}`,
+    ctx.earlier ? `Earlier in the meeting:\n${ctx.earlier}` : "",
     ctx.recent.length ? `Recent lines:\n${ctx.recent.join("\n")}` : "",
     ctx.state ?? "",
     `New line. ${input.speaker}: "${input.text}"`,
@@ -320,7 +346,9 @@ export async function answerQuestion(
   const result = await generateText({
     model: ai.model,
     system: "Answer the meeting's question from the files in one or two short sentences. If the files don't say, say so.",
-    prompt: `Files:\n${ctx.outline}\n\nRecent lines:\n${ctx.recent.join("\n")}\n\nQuestion: ${question}`,
+    prompt: [`Files:\n${ctx.outline}`, ctx.earlier ? `Earlier in the meeting:\n${ctx.earlier}` : "", `Recent lines:\n${ctx.recent.join("\n")}`, `Question: ${question}`]
+      .filter(Boolean)
+      .join("\n\n"),
     maxRetries: 1,
     abortSignal: signal,
   });
@@ -361,6 +389,76 @@ export async function readScreen(
     .join("\n\n");
   const { value, usage } = await structured(ai, { system: SCREEN_INSTRUCTIONS, prompt, schema: SCREEN_SCHEMA, name: "screen", keys: SCREEN_KEYS, signal, image: input.image });
   return { read: { ...value, section: cleanSection(value.section) }, usage };
+}
+
+export const CONFIRM_SCHEMA = z.object({
+  forScribe: z.boolean().describe("True only when the line asks Scribe to do one of its jobs."),
+  request: z.string().nullable().describe("The request as said to Scribe, without the name in front. Null when it isn't for Scribe."),
+});
+export type Confirmation = z.infer<typeof CONFIRM_SCHEMA>;
+
+const CONFIRM_KEYS = `{"forScribe": true | false, "request": string or null}`;
+
+export const confirmInstructions = (wakeWord: string) => `You decide whether one line from a live meeting was said to Scribe, the meeting's AI note-taker, which people call "${wakeWord}".
+Live captions often mishear that name as a word that sounds like it, at the start of the line ("Subscribe", "Describe", "Scrub" for "Scribe"). The line you get starts with such a word.
+It is for Scribe only when the line asks Scribe to do one of its jobs:
+- add, change, move or delete something in the meeting's shared files (Google Docs, Sheets, Slides, Obsidian notes, Overleaf),
+- add a comment to them,
+- take a screenshot or a recording of the shared screen, or copy what's on screen into a file,
+- answer a question about the files or about what was said,
+- change Scribe itself: listening mode, working file, approval, pause, resume, recording.
+It is not for Scribe when the word is used in its normal meaning ("describe the login flow for me", "subscribe to the newsletter", "I'd scrub that idea"), when it's said to a person in the room, or when it's only a greeting, small talk or a sound check ("Scribe, hello, how are you?").
+Use the recent lines to see who is being spoken to. When unsure, it is not for Scribe.
+
+Examples (wake word "Scribe"):
+- "Subscribe, put the new deadline in the timeline." → {"forScribe": true, "request": "put the new deadline in the timeline"}
+- "Describe! Can you comment on the budget line saying check with finance?" → {"forScribe": true, "request": "comment on the budget line saying check with finance"}
+- "Scrub, switch to smart mode." → {"forScribe": true, "request": "switch to smart mode"}
+- "Describe what the customer saw when it crashed." → {"forScribe": false, "request": null}
+- "Subscribe to our channel at the end of the demo." → {"forScribe": false, "request": null}
+- "Subscribe, hi, can you hear me?" → {"forScribe": false, "request": null}`;
+
+/** A line that starts with a word sounding like the wake word: was it really said to Scribe? */
+export async function confirmRequest(
+  ai: AiModel,
+  input: { speaker: string; text: string; wakeWord: string },
+  ctx: { recent: string[]; files: string[] },
+  signal?: AbortSignal
+): Promise<{ confirmation: Confirmation; usage: Usage }> {
+  const prompt = [
+    ctx.files.length ? `Files Scribe can edit: ${ctx.files.join(", ")}` : "No files connected.",
+    ctx.recent.length ? `Recent lines:\n${ctx.recent.join("\n")}` : "",
+    `${input.speaker} said: "${input.text}"`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  const { value, usage } = await structured(ai, { system: confirmInstructions(input.wakeWord), prompt, schema: CONFIRM_SCHEMA, name: "confirmation", keys: CONFIRM_KEYS, signal });
+  return { confirmation: { forScribe: value.forScribe, request: value.forScribe ? (value.request?.trim() || null) : null }, usage };
+}
+
+export const SUMMARY_INSTRUCTIONS =`You keep the running notes of a live meeting, so later requests can refer back to it.
+You get the notes so far (maybe none) and the next lines of the meeting, each "time Name: words". Return the updated notes:
+- decisions, with who made them;
+- action items, with the owner and any date;
+- open questions;
+- facts and numbers people gave (dates, amounts, names), with who said them;
+- what was asked of Scribe and which files or sections it went to.
+Plain short lines, oldest first, no quotation marks, no small talk. Keep everything from the old notes that still matters. At most 250 words.`;
+
+/** Folds older lines into the meeting's running summary. */
+export async function summarizeMeeting(
+  ai: AiModel,
+  input: { previous: string | null; lines: string[] },
+  signal?: AbortSignal
+): Promise<{ summary: string; usage: Usage }> {
+  const result = await generateText({
+    model: ai.model,
+    system: SUMMARY_INSTRUCTIONS,
+    prompt: [`Notes so far:\n${input.previous ?? "(none yet)"}`, `Next lines:\n${input.lines.join("\n")}`].join("\n\n"),
+    maxRetries: 1,
+    abortSignal: signal,
+  });
+  return { summary: result.text.trim(), usage: toUsage(result.usage) };
 }
 
 /** A quick round trip used by the Test button. */

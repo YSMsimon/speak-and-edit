@@ -33,3 +33,6 @@ web-ext.config.ts
 
 # Smoke test runs (scripts/smoke-server.mjs)
 .smoke
+
+# AI log analysis (real meeting content): never commit
+.evals

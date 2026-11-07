@@ -1,4 +1,4 @@
-import { CameraIcon, CheckIcon, CircleIcon, HandIcon, KeyboardIcon, ListChecksIcon, MessageSquareTextIcon, MonitorUpIcon, PauseIcon, PlayIcon, ScrollTextIcon, SparklesIcon, SquareIcon, XIcon, ZapIcon, type LucideIcon } from "lucide-react";
+import { CameraIcon, CheckIcon, CircleIcon, HandIcon, HistoryIcon, KeyboardIcon, ListChecksIcon, MessageSquareTextIcon, MonitorUpIcon, PauseIcon, PlayIcon, ScrollTextIcon, SparklesIcon, SquareIcon, XIcon, ZapIcon, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Engine, EngineState } from "@/lib/engine";
@@ -6,6 +6,7 @@ import type { Settings } from "@/lib/settings";
 import { toSegments } from "@/lib/segments";
 import { GlassButton } from "@/components/glasscn/ui/glasscn/glass-button";
 import { LiquidSwitch } from "@/components/glasscn/ui/glasscn/liquid-switch";
+import { Checkpoint, CheckpointIcon } from "@/components/ai-elements/checkpoint";
 import { Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton } from "@/components/ai-elements/conversation";
 import {
   PromptInput,
@@ -39,7 +40,7 @@ import {
 import { Transcription, TranscriptionSegment } from "@/components/ai-elements/transcription";
 
 import { EntryView, proposalTitle } from "./EntryView";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { FILE_LOGO, Logo } from "./logos";
 import { useProviderHealth } from "./hooks";
@@ -80,7 +81,7 @@ function FooterPicker<T extends string>(props: { label: string; value: T; choice
   const Icon = current.icon;
   return (
     <PromptInputActionMenu>
-      <PromptInputActionMenuTrigger aria-label={`${label}: ${current.title}`} className="gap-1.5 px-2.5 text-muted-foreground text-sm" size="sm">
+      <PromptInputActionMenuTrigger aria-label={`${label}: ${current.title}`} className="h-9 gap-2 px-3 text-[0.9375rem] text-muted-foreground">
         <Icon className="size-4" />
         {current.short ?? current.title}
       </PromptInputActionMenuTrigger>
@@ -92,12 +93,12 @@ function FooterPicker<T extends string>(props: { label: string; value: T; choice
               <c.icon className="mt-0.5 size-4" />
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="font-medium">{c.title}</span>
-                <span className="text-muted-foreground text-xs">{c.line}</span>
+                <span className="text-muted-foreground text-sm">{c.line}</span>
               </span>
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
-        {note && <p className="px-2 pt-1 pb-1.5 text-muted-foreground text-xs">{note}</p>}
+        {note && <p className="px-2 pt-1 pb-1.5 text-muted-foreground text-sm">{note}</p>}
       </PromptInputActionMenuContent>
     </PromptInputActionMenu>
   );
@@ -153,16 +154,16 @@ export function LiveTab(props: {
   return (
     <section aria-label="Live" className="flex min-h-0 flex-1 flex-col gap-2.5 px-3 pb-3">
       {inCall && (
-        <div className={cn("flex flex-col gap-2 rounded-xl px-3 py-2.5 text-[13px]", subtle)}>
+        <div className={cn("flex flex-col gap-2 rounded-xl px-3 py-2.5 text-[0.9375rem]", subtle)}>
           <div className="flex items-center gap-2">
-            <MonitorUpIcon className="size-3.5 shrink-0" />
+            <MonitorUpIcon className="size-5 shrink-0" />
             <span className={cn("min-w-0 flex-1", !screen && "text-muted-foreground")}>
               {screen ? `${screen.presenter ?? "Someone"} is sharing` : "Nobody is sharing"}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {screen && (
-              <GlassButton glassVariant="subtle" onClick={() => engine.takeScreenshot()} size="xs">
+              <GlassButton glassVariant="subtle" onClick={() => engine.takeScreenshot()} size="lg">
                 <CameraIcon />
                 Screenshot
               </GlassButton>
@@ -171,7 +172,7 @@ export function LiveTab(props: {
               aria-label={recorder.timing ? "Stop recording" : "Record the call"}
               glassVariant="subtle"
               onClick={() => (recorder.timing ? recorder.stop() : recorder.start())}
-              size="xs"
+              size="lg"
             >
               {recorder.timing ? <SquareIcon className="fill-current" /> : <CircleIcon className="fill-red-500 text-red-500" />}
               {recorder.timing ? `Stop ${recorder.elapsed}` : "Record"}
@@ -181,7 +182,7 @@ export function LiveTab(props: {
                 aria-label={recorder.paused ? "Resume recording" : "Pause recording"}
                 glassVariant="subtle"
                 onClick={() => (recorder.paused ? recorder.resume() : recorder.pause())}
-                size="xs"
+                size="lg"
               >
                 {recorder.paused ? <PlayIcon /> : <PauseIcon />}
                 {recorder.paused ? "Resume" : "Pause"}
@@ -194,7 +195,6 @@ export function LiveTab(props: {
               checked={settings.screen.autoCapture}
               id="auto-capture-switch"
               onCheckedChange={(v: boolean) => update({ screen: { ...settings.screen, autoCapture: v } })}
-              size="sm"
             />
             <span className={cn(settings.screen.autoCapture ? "text-foreground" : "text-muted-foreground")}>Save each new slide</span>
           </label>
@@ -209,11 +209,11 @@ export function LiveTab(props: {
         <Queue className={cn("rounded-2xl px-2 pt-1.5 pb-1.5", subtle)}>
           <QueueSection>
             <div className="flex items-center justify-between gap-2">
-              <QueueSectionTrigger className="bg-transparent px-2 py-1.5 text-xs">
-                <QueueSectionLabel count={pending.length} icon={<ListChecksIcon className="size-3.5" />} label="waiting for you" />
+              <QueueSectionTrigger className="bg-transparent px-2 py-1.5 text-sm">
+                <QueueSectionLabel count={pending.length} icon={<ListChecksIcon className="size-4" />} label="waiting for you" />
               </QueueSectionTrigger>
               {approvals > 1 && (
-                <GlassButton glassVariant="subtle" onClick={() => engine.approveAll()} size="xs">
+                <GlassButton glassVariant="subtle" onClick={() => engine.approveAll()} size="lg">
                   Approve all ({approvals})
                 </GlassButton>
               )}
@@ -227,15 +227,15 @@ export function LiveTab(props: {
                       <QueueItemContent>{text}</QueueItemContent>
                       <QueueItemActions>
                         <QueueItemAction aria-label={approve ? "Approve" : "Accept"} onClick={() => (approve ? engine.approve(e.id) : engine.decide(e.id, true))}>
-                          <CheckIcon className="size-3" />
+                          <CheckIcon className="size-4" />
                         </QueueItemAction>
                         <QueueItemAction aria-label={approve ? "Discard" : "Reject"} onClick={() => (approve ? engine.discard(e.id) : engine.decide(e.id, false))}>
-                          <XIcon className="size-3" />
+                          <XIcon className="size-4" />
                         </QueueItemAction>
                       </QueueItemActions>
                     </div>
                     <QueueItemDescription className="flex items-center gap-1">
-                      <Logo className="size-3" name={FILE_LOGO[kind]} />
+                      <Logo className="size-4" name={FILE_LOGO[kind]} />
                       {approve ? where : `Suggestion in ${where}`}
                     </QueueItemDescription>
                   </QueueItem>
@@ -261,11 +261,23 @@ export function LiveTab(props: {
               title="No lines yet"
             />
           ) : (
-            state.entries.map((e) => <EntryView avatar={state.avatars[e.speaker]} engine={engine} entry={e} key={e.id} me={me} />)
+            state.entries.map((e, i) => (
+              <Fragment key={e.id}>
+                {e.missed && !state.entries[i - 1]?.missed && (
+                  <Checkpoint>
+                    <CheckpointIcon>
+                      <HistoryIcon className="size-4 shrink-0" />
+                    </CheckpointIcon>
+                    <span className="shrink-0 px-1 text-sm">Heard while the panel was closed, not run</span>
+                  </Checkpoint>
+                )}
+                <EntryView avatar={state.avatars[e.speaker]} engine={engine} entry={e} me={me} />
+              </Fragment>
+            ))
           )}
           {state.partial && (
             <div className="flex flex-col gap-1.5 rounded-xl bg-background/50 p-2.5">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
                 <SpeakerAvatar name={state.partial.speaker} src={state.avatars[state.partial.speaker]} />
                 <span className="font-medium text-foreground">{state.partial.speaker}</span>
                 <span>is speaking</span>

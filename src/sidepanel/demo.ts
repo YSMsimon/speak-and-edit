@@ -31,6 +31,10 @@ export const DEMO_SETTINGS: Settings = {
 
 /** ?demo=1&more: the cards that need someone (a held change, a question, a problem). */
 const MORE: Entry[] = [
+  // Left the call 16:08–16:09, then two lines heard while the panel was closed.
+  { id: "g1", speaker: "Scribe", text: "Scribe heard nothing from 16:08 to 16:09.", at: T0 + 200_000, addressed: false, typed: false, source: "gap", action: { kind: "skipped" } },
+  { id: "x1", speaker: "Lena", text: "I can take the launch email.", at: T0 + 215_000, addressed: false, typed: false, missed: true, action: { kind: "skipped" } },
+  { id: "x2", speaker: "Marco", text: "Scribe, add that to the tasks.", at: T0 + 225_000, addressed: false, typed: false, missed: true, action: { kind: "skipped" } },
   {
     id: "m1", speaker: "Marco", text: "Scribe, change the budget to 40k.", at: T0 + 240_000, addressed: true, typed: false,
     action: { kind: "proposal", proposal: { origin: "command", file: TASKS, write: { action: "replace", section: "Budget", text: null, find: "30k", replaceWith: "40k", cells: [] }, quote: "change the budget to 40k", speaker: "Marco", at: T0 + 240_000 } },

@@ -34,7 +34,8 @@ export default defineConfig({
     // tabCapture + activeTab: record the Meet tab, only after a click.
     // scripting: edit an Overleaf project through its open tab, only once Chrome allows overleaf.com (below).
     // alarms: smoke builds only, to check the local smoke server every 30 s.
-    permissions: ['sidePanel', 'storage', 'identity', 'tabs', 'tabCapture', 'activeTab', 'scripting', ...(process.env.SCRIBE_SMOKE ? ['alarms'] : [])],
+    // unlimitedStorage: saved meetings (this computer only); no prompt, and no 10 MB limit for a long day of calls.
+    permissions: ['sidePanel', 'storage', 'unlimitedStorage', 'identity', 'tabs', 'tabCapture', 'activeTab', 'scripting', ...(process.env.SCRIBE_SMOKE ? ['alarms'] : [])],
     host_permissions: [
       'https://meet.google.com/*',
       'https://docs.googleapis.com/*',
@@ -43,6 +44,8 @@ export default defineConfig({
       'https://www.googleapis.com/*',
       'http://localhost/*',
       'http://127.0.0.1/*',
+      // Ollama's public list of its cloud models, for the model picker. Read only.
+      'https://ollama.com/*',
       // Sign in with ChatGPT: the sign-in and token service, and the API the plan pays for.
       'https://auth.openai.com/*',
       'https://api.openai.com/*',

@@ -1,7 +1,11 @@
 // Opens Scribe's side panel when the toolbar icon is clicked.
 // Smoke builds also carry a dev bridge to scripts/smoke-server.mjs (see devBridge below).
+import { injectIntoOpenMeetTabs } from "@/lib/meet-script";
+
 export default defineBackground(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((e) => console.error(e));
+  // Meet tabs that were open before this install or update get Scribe's script now, without a reload.
+  chrome.runtime.onInstalled.addListener(() => void injectIntoOpenMeetTabs());
   // Screenshot builds (scripts/screens.mjs) leave the bridge off: no reloads, no smoke runs.
   if (__SCRIBE_SMOKE__ && !__SCRIBE_SCREENS__) devBridge();
 });

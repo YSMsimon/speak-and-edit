@@ -132,11 +132,12 @@ export const ToolHeader = ({
         {icon ?? <WrenchIcon className="size-4 text-muted-foreground" />}
         {subtitle ? (
           <span className="flex min-w-0 flex-col text-left">
-            <span className="truncate font-medium text-sm">{title ?? derivedName}</span>
+            {/* local patch: card titles a step larger, as in the mockups */}
+            <span className="truncate font-medium text-[0.9375rem]">{title ?? derivedName}</span>
             <span className="truncate text-muted-foreground text-xs">{subtitle}</span>
           </span>
         ) : (
-          <span className="font-medium text-sm">{title ?? derivedName}</span>
+          <span className="font-medium text-[0.9375rem]">{title ?? derivedName}</span>
         )}
         {!compact && getStatusBadge(state)}
       </div>

@@ -2,7 +2,7 @@
 
 Read the lines aloud in a Google Meet call, one at a time. Every mode and setting is covered. It takes about 35 minutes; section 8 (shared screen) needs a second person presenting.
 
-After each line, pause for about 2 seconds. Meet only finishes a caption line after a short silence (Scribe waits 1.2 s), so if you keep talking, two lines become one.
+After each line, pause for about 3 seconds. Scribe sends a line 1.5 s after Meet puts the full stop on it, so if you keep talking, two lines become one.
 
 Tick each box as you go. When one fails, write down its number and what the panel showed (see the end).
 
@@ -40,7 +40,7 @@ Make these in Google Drive. Use the exact titles.
 
 Start each command with "Scribe", said clearly. Check what Meet writes in the captions:
 - Scribe, Scribes or Skribe: these work.
-- "Subscribe!" or "Subscribe," (Meet's usual mishearing) works too, when it's followed by punctuation the way a name would be.
+- "Subscribe!", "Describe" or "Scrub" (Meet's usual mishearings) work too: Scribe asks the AI once whether the line was a request for it. "Describe the flow for me" or "Subscribe! Hello, how are you?" does nothing.
 - Script or Describe: these don't. Say it more slowly, or change the wake word in AI model.
 - Your own lines should show your Google name and photo, not "You". Other people show their Meet name and photo.
 
@@ -180,9 +180,9 @@ Your name shows up in the People tab once you've spoken.
 | ☐ 7.1 | Click **Pause** in the header; the badge should say Paused. Say "Scribe, add to notes: paused test." Then resume and say it again. | While paused, nothing shows up in the panel. After you resume, it works. |
 | ☐ 7.2 | In AI model, click **Continue with ChatGPT** and sign in with a Plus or Pro account. Then switch to Chrome built-in too. For each one, click Test and redo 1.1 and 3.3. | Sign-in: a tab opens, you approve Scribe, the tab closes by itself, and "You're using your ChatGPT plan" appears. Then the same results as Ollama. Write down any provider that gets them wrong. |
 | ☐ 7.3 | Join the call from your phone as a guest named "Alex", and admit them. From the phone, say "Scribe, add to notes: second person test." | The line shows the speaker as Alex, and the credit names Alex. Alex appears in People with a role you can change. |
-| ☐ 7.4 | Say "Scribe, add Postgres 16 to", wait about 1.5 seconds, then "Decisions." | One line, one change under Decisions. Scribe waits longer when a sentence ends in "to", "and", "the" or a comma. |
+| ☐ 7.4 | Say "Scribe, add Postgres 16 to", wait about 3 seconds, then "Decisions." | One line, one change under Decisions. Scribe waits up to 5 seconds when a sentence ends in "to", "and", "the" or a comma. |
 | ☐ 7.5 | Say "Scribe," then stop for about 3 seconds. Then say "add to notes: pause test." | The bare "Scribe," shows nothing; the second line is bold and acted on. The next line within 8 seconds counts as the request. |
-| ☐ 7.6 | Say "Scribe, add to notes: quick test." and stop. Watch how soon the card appears. | About 0.7 seconds after the full stop shows in Meet's captions, plus the AI's time. Without a full stop, 1.2 seconds. |
+| ☐ 7.6 | Say "Scribe, add to notes: quick test." and stop. Watch how soon the card appears. | About 1.5 seconds after the full stop shows in Meet's captions, plus the AI's time. If Meet adds no full stop, 4 seconds. |
 
 ---
 
@@ -255,6 +255,25 @@ Every line here is a request to Scribe itself. Each one shows a card titled **Sc
 | ☐ 9.11 | "Scribe, pause the recording." Then "Scribe, resume the recording." Then "Scribe, stop recording." | The badge says "Recording paused", then counts again, then the recording is saved as in 8.8. The paused time isn't counted in its length. |
 | ☐ 9.12 | "Scribe, switch to Smart mode, work on the doc, and ask before writing." | One card with three changes. Then say "Scribe, switch to commands mode and use any file" to go back. |
 | ☐ 9.13 | Set yourself to **Comments only** in People. "Scribe, switch to Smart mode." | A red card: comments-only people can't change Scribe's settings. Set yourself back to **Can edit**. |
+
+## 10. Saved meetings, leaving the call, background tab (about 10 minutes)
+
+Commands mode, Auto, the test Doc as the working file.
+
+| # | Do | What should happen |
+|---|---|---|
+| ☐ 10.1 | Put Meet in a background tab (open the Doc in front) for 10 minutes. Have the other person say a few lines, then "Scribe, add to notes: background test." | Every line is in the panel, nothing missing, and the edit lands. Meet keeps updating captions while its tab is hidden. |
+| ☐ 10.2 | Close the side panel. Have the other person say two lines, then "Scribe, add to notes: closed panel test." Open the panel again. | Everything from before is still there. The three lines appear under "Heard while the panel was closed, not run", and the request did **not** run. |
+| ☐ 10.3 | Say "Scribe, add to notes: before leaving." Click Leave call, wait a minute, click Rejoin. Say "Scribe, add to notes: after rejoining." | A line "Scribe heard nothing from … to …" between the two. Both edits land. |
+| ☐ 10.4 | Close the Meet tab, open the meeting link again in a new tab and join. | Same meeting in the panel (nothing lost), with a "heard nothing" line for the time in between. |
+| ☐ 10.5 | Quit Chrome completely, reopen it, rejoin and open the panel. | Same meeting, everything still there. |
+| ☐ 10.6 | About 25 lines after something specific was said (a number, a date), say "Scribe, add what <their name> said about … to decisions." | It finds the right line from earlier, not just the last few. |
+| ☐ 10.7 | Outputs › Also › Saved meetings › Delete, then Delete all? | The Live tab empties and a toast says how many were deleted. The call keeps going as a new meeting. |
+| ☐ 10.8 | Say "Scribe, add to decisions." then, after about a second, "We're using Postgres 16." | One request: Postgres 16 under Decisions. Meet's first full stop doesn't cut it in half. |
+| ☐ 10.9 | Switch to another tab so Meet opens its picture-in-picture window, and keep talking for a minute. | The header still says Listening, and your lines keep arriving. |
+| ☐ 10.10 | After the call, run `node scripts/eval-report.mjs`. | A report with the calls, outcomes and any flagged mistakes from this call. |
+
+---
 
 ## When something fails
 

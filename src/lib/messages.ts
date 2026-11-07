@@ -12,6 +12,18 @@ export interface MeetState {
   screen?: { presenter: string | null } | null;
   /** Saving each new slide of the shared screen by itself. */
   autoCapture?: boolean;
+  /** The Meet code from the address (abc-defg-hij): which saved meeting this is. */
+  code?: string | null;
+  /** When this tab last joined the call, and last left it. */
+  joinedAt?: number | null;
+  leftAt?: number | null;
+}
+
+/** A finished line the Meet tab kept because the panel was closed. */
+export interface MissedLine {
+  speaker: string;
+  text: string;
+  at: number;
 }
 
 /** One still of the shared screen, as a JPEG data URL. */
@@ -39,4 +51,6 @@ export type ToMeet =
   | { type: "meet/get-state" }
   | { type: "meet/set-paused"; paused: boolean }
   | { type: "meet/capture" }
-  | { type: "meet/set-auto-capture"; on: boolean };
+  | { type: "meet/set-auto-capture"; on: boolean }
+  /** Hands over the lines heard while the panel was closed, and forgets them. Replies MissedLine[]. */
+  | { type: "meet/take-missed" };

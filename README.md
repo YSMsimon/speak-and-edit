@@ -22,7 +22,7 @@ Status: v0.9, in development. Unit-tested, the prompts are checked against a rea
 - **Obsidian** (v0.7): Outputs › Obsidian. Choose your vault folder once, then "New note" makes a meeting note in `Meetings/`, or add existing notes. Scribe adds under headings, changes text, comments as `> [!comment]` callouts, keeps credit hidden as `%% … %%`, and Record all writes the note's Transcript. Files stay on your computer; nothing to sign in to.
 - **Overleaf** (v0.8): Outputs › Overleaf lists the projects open in this Chrome; **Add** asks Chrome once for overleaf.com. Scribe edits the `.tex` file open in the project's tab, through Overleaf's own editor, so Overleaf saves it and co-authors see it live. It adds under `\section{…}` (as `\item` lines when the section ends in a list), changes text, and comments and credits on `% [Scribe] …` lines, which are in the source and never in the PDF. What people say is made safe for LaTeX (`30%` becomes `30\%`; `& $ # _ { }` likewise), and "change 30% to 35%" finds `30\%`. If the tab is closed, Scribe opens it in the background. Screenshots go in as a `% [Scribe]` line with the Drive link. Track changes is a paid Overleaf feature, so Ask before writing holds changes in the panel. Overleaf's real comments aren't used: its editor gives no reliable way in. The `scripting` permission is only used on Overleaf tabs.
 - **Use your own API key** (v0.6): collapsed at the bottom of AI model. OpenRouter Connect, or keys for Anthropic (the only allowed way to use Claude), OpenAI, Gemini and Groq. Each service's permission is asked for only when you first use it.
-- **Names and photos:** each line shows the speaker's name and the photo Meet shows next to their captions. Your own lines use your Google account name and photo (the `userinfo.profile` permission) instead of Meet's "You". Meet often hears "Scribe!" as "Subscribe!"; that counts when it's said like a name.
+- **Names and photos:** each line shows the speaker's name and the photo Meet shows next to their captions. Your own lines use your Google account name and photo (the `userinfo.profile` permission) instead of Meet's "You". Meet often hears "Scribe" as "Subscribe", "Describe" or "Scrub". A first word that only sounds like the wake word (Double Metaphone codes) gets one short extra AI call: does the line ask Scribe to do one of its jobs, or is it ordinary talk ("describe the flow for me")? Only a yes runs, in the speaker's own words. The wake word itself never needs the extra call.
   - **Record all:** no model. Every line goes into a "Transcript" section at the end of a chosen Doc, written in batches.
 - **Approval** (picker next to it): **Auto** writes straight into the file. **Ask before writing** puts Docs edits in as suggestions to accept or reject (in the panel or the Doc); anything that can't be a suggestion (Sheets, Slides, transcript lines, screenshots) waits in the panel for Approve. "Approve all" clears the queue. Comments go straight in either way. New installs start on Ask before writing.
 - **Changing Scribe by voice** (v0.4): a control tool with five parameters (mode, file to work on, approval, listening, video recording). "Scribe, switch to Smart mode", "work on the tracker", "use any file", "let me approve changes first", "make the edits directly", "pause", "resume", "start/pause/resume/stop recording". Several at once work too. "Scribe, resume" is matched without the AI, since nothing said during a pause goes to the model. Starting a video needs the request to mention the video, the recording, the screen or the call, so "record everything" means Record all mode. People set to comments only can't change settings.
@@ -105,18 +105,59 @@ Then quit and reopen Ollama. Don't use `*`: that lets every website reach Ollama
 - **Recording:** Chrome allows tab recording only after Scribe was opened on that tab (click its icon while on Meet). Otherwise Chrome's own picker asks which tab to share.
 - **Background tab:** stills may be stale if the Meet tab is hidden; keep Meet visible when you take one.
 
+## Meetings are saved
+
+There is nothing to manage: the Meet code in the address decides which meeting it is.
+
+- **Closing the panel, reloading Scribe or restarting Chrome** picks the same meeting up again: the transcript, the result cards, edits waiting for approval and Docs suggestions. A request that was still running when the panel closed shows as stopped, with Retry. Transcript lines that hadn't been written yet are sent again.
+- **Lines said while the panel was closed** are kept by the Meet tab and come back when the panel opens, under "Heard while the panel was closed, not run". They are never run as requests: "Scribe, delete that" from ten minutes ago mustn't fire late. In Record all they still go into the transcript.
+- **Leaving the call and coming back** (Rejoin, a closed tab and a new one, a dropped connection) leaves a line like "Scribe heard nothing from 14:20 to 14:23", so nobody thinks Scribe ignored them. Meet only shows captions to people in the call, so what was said then can't be recovered.
+- **A new meeting starts** for a different Meet code, or for the same code after 2 hours without use (a weekly event keeps its code).
+- **Where:** `chrome.storage.local`, on this computer only, never synced or sent anywhere. Meetings are kept 30 days. Outputs › Also › Saved meetings › Delete removes them all, the open one too.
+- **A dropped connection:** transcript lines that fail are sent again with the next batch (3 tries), and all of them again when Chrome is back online.
+
+### How much of the meeting the AI sees
+
+Each request gets the last 6 lines, plus older lines that fit about **10% of the chosen model's context window, at most 16k tokens** (`src/lib/ai/context.ts`):
+
+1. Lines that match the request (a name, a topic), so "add what Priya said about the budget" finds it.
+2. The newest of the other older lines.
+3. Once the meeting no longer fits, a short running summary of the oldest part, written in the background (never while a request waits) and saved with the meeting. Exact words, and credits, always come from the saved lines, never the summary.
+
+The cap is for speed and cost, not space: an hour of talk is about 12k tokens, and each request reads the whole budget again. Context windows: Ollama cloud models 128k (local Ollama models keep Ollama's 4k default), Chrome's built-in model 4k, OpenRouter as its model list says, others from what each provider offers. Smart mode judges every line, so it gets only the summary. Record all uses no model, so nothing is summarized there.
+
+## The AI log, for finding mistakes
+
+Scribe keeps a log of every AI call (what went in, what came out, how long, any error), what happened to each line, and what you did about it (approve, discard, accept, reject, retry, answer a question). It stays on this computer for 30 days (`src/lib/interactions.ts`); Outputs › Also › Saved meetings has Export (a `.jsonl` file) and Delete. Smoke builds also append it to `.smoke/interactions.jsonl` through the local dev server, which accepts it only from the extension.
+
+```sh
+node scripts/eval-report.mjs                 # reads .smoke/interactions.jsonl
+node scripts/eval-report.mjs export.jsonl    # or an exported log
+```
+
+The report sums up calls, errors, latency and outcomes, and flags the lines most likely to be mistakes: the AI failed or asked "which one?", a change was taken as nothing or as a question, you rejected, discarded or retried, the same request was said again soon after, the wake-word check said no and the person then said the wake word, or a call took over 8 s. Each flagged line goes to `.evals/candidates-<date>.jsonl` with its full AI inputs and outputs (git-ignored, it holds real meeting content), to become eval cases and few-shot examples. The prompts in `src/lib/ai/agent.ts` already carry a first set of few-shot examples, written on made-up files that differ from the ones the tests use.
+
+## One Scribe per meeting, and whose account edits
+
+- **Only the person running Scribe signs in to Google.** Every edit, suggestion and comment is made by their account; the credit line says who spoke. Nobody else in the call installs or connects anything.
+- **Share the file with whoever runs Scribe:** Editor for edits and suggestions, Commenter for comments only. Don't make it public; Scribe doesn't need that. (A shared-screen picture is link-viewable for a few seconds while Docs or Slides copies it, then switched off.)
+- **Run one Scribe per meeting.** Two people running it both hear "Scribe, add …" and both make the edit. The same goes for one person with the panel open in two Chrome windows.
+- **Who said it comes from Meet:** each caption is labelled by whose microphone it came from, not by voice. So everyone on one laptop or a meeting-room device is credited to that one name, two people with the same display name can't be told apart, phone dial-ins show as a number, sound from a shared video is credited to the presenter, and People-tab roles follow display names (someone who renames themselves gets the new name's role).
+
 ## When a spoken line counts as finished
 
-Scribe reads Meet's captions as they grow, word by word. A line ends when the captions stop changing, or when someone else starts talking. How long Scribe waits depends on the last words (`src/lib/segmenter.ts`):
+Scribe reads Meet's captions as they grow, word by word, and lets Meet decide where sentences end: Meet adds the full stop when it hears one. A line is sent to the AI when the captions have stopped changing for a while, or when someone else starts talking. How long depends on how the captions end (`src/lib/segmenter.ts`):
 
-| The line ends with | Wait | Why |
+| The captions end with | Wait | Why |
 |---|---|---|
-| A full stop, question mark or exclamation mark | 0.7 s | Meet already heard the sentence end |
-| Anything else | 1.2 s | No clue either way |
-| A comma, or a word like "to", "and", "the", "um" | 2.0 s | The speaker is mid-thought |
+| A full stop, question mark or exclamation mark | 1.5 s | Meet closed the sentence; the wait is for a second one from the same person |
+| Anything else | up to 4 s | Meet hasn't closed it yet. Its full stop usually comes about half a second to a second after the speaker stops, and starts the 1.5 s wait. 4 s covers short phrases Meet leaves bare |
+| A comma, or a word like "to", "and", "the", "um" | 5 s | The speaker is mid-thought |
 
-A single shorter wait would cut sentences in half:
-- **Heldner & Edlund (2010)** found that 56–60% of the pauses inside one person's speech last 0.5 s or more, and 28–31% last 1 s or more.
+Every change to the captions starts the wait again, so a request that runs over two sentences ("Scribe, add to decisions. We're using Postgres 16.") goes to the AI as one line. Most requests are sent about 2 s after the speaker stops.
+
+Why not quicker:
+- **Heldner & Edlund (2010)** found that 28–31% of the pauses inside one person's speech last 1 s or more.
 - **Campione & Véronis (2002)** found that only 2.8% last over 2 s.
 - **A cut request is worse than a slow one:** its second half has no wake word, so it would be lost.
 
@@ -164,7 +205,9 @@ Results on 2026-11-01: 23/40 with Chrome's built-in Gemini Nano; 39/40 with Olla
 - `src/entrypoints/meet.content.ts`: reads captions in the Meet tab and sends finished lines to the panel.
 - `src/lib/segmenter.ts`: turns live caption updates into finished lines.
 - `src/lib/wake.ts`: fuzzy wake-word match.
-- `src/lib/engine.ts`: handles one line at a time: mode → model → proposal → approval → file target.
+- `src/lib/engine.ts`: handles one line at a time: mode → model → proposal → approval → file target. Also saves and restores the meeting, adds lines heard while the panel was closed, and marks stretches Scribe heard nothing.
+- `src/lib/sessions.ts`: saved meetings in `chrome.storage.local`, one per Meet code.
+- `src/lib/ai/context.ts`: how many older lines each request gets, and when to fold them into the summary.
 - `src/lib/targets/`: Docs, Sheets and Slides, each behind the same interface.
 - `src/lib/ai/`: providers and the two model jobs (parse a request, decide whether a line is worth a comment).
 - `src/lib/docs/`: reads the doc into sections and computes the API requests. The model never picks indexes.

@@ -43,21 +43,22 @@ export function remainderAfter(emitted: string, text: string): string {
 }
 
 /**
- * How long the captions must stay unchanged before a line counts as finished, decided from its last words.
+ * How long the captions must stay unchanged before a line counts as finished, decided by Meet's own
+ * punctuation. Meet already works out where sentences end (it adds the full stop when it hears one), so
+ * Scribe waits for that, then a little more in case the same person goes on: a request often runs over
+ * two sentences ("Scribe, add to decisions. We're using Postgres 16."), and a request cut in half loses
+ * its second half, which has no wake word. Every change to the captions starts the wait again.
  *
- * Why not one shorter number: inside a speaker's turn, 56–60% of pauses last 0.5 s or more and 28–31% last
- * 1 s or more (Heldner & Edlund 2010, Journal of Phonetics 38); in spontaneous speech 2.8% last over 2 s
- * (Campione & Véronis 2002). Any fixed wait short enough to feel quick cuts sentences in half, and a cut
- * request loses its second half (it has no wake word). So Scribe is quick only when the words say the
- * sentence is over, and patient when they say it isn't, as text-aware endpointers do.
+ * Pauses inside one person's turn: 28–31% last 1 s or more (Heldner & Edlund 2010, Journal of Phonetics 38),
+ * and 2.8% over 2 s (Campione & Véronis 2002). So 1.5 s after a sentence end keeps most turns whole.
  */
 export const QUIET_MS = {
-  /** Meet put a full stop or question mark at the end: it already heard the sentence end. */
-  done: 700,
-  /** No clue either way. */
-  normal: 1200,
-  /** Ends in a comma, or in a word that can't end a request ("add … to", "and", "um"). */
-  unfinished: 2000,
+  /** Meet closed the sentence (. ? !): wait this long for another one from the same person, then send. */
+  sentenceEnd: 1500,
+  /** Meet hasn't closed it yet: wait for its full stop, but not forever (it leaves short phrases bare). */
+  open: 4000,
+  /** Ends mid-thought: a comma, or a word that can't end a request ("add … to", "and", "um"). */
+  unfinished: 5000,
 };
 
 const UNFINISHED_WORDS = new Set(
@@ -66,11 +67,11 @@ const UNFINISHED_WORDS = new Set(
 
 export function quietMs(text: string): number {
   const t = text.trim();
-  if (!t) return QUIET_MS.normal;
+  if (!t) return QUIET_MS.open;
   if (/[,:;–—-]$/.test(t)) return QUIET_MS.unfinished;
-  if (/[.?!]["”’)]?$/.test(t)) return QUIET_MS.done;
+  if (/[.?!…]["”’)]?$/.test(t)) return QUIET_MS.sentenceEnd;
   const last = (t.split(/\s+/).pop() ?? "").toLowerCase().replace(/[^\p{L}']/gu, "");
-  return UNFINISHED_WORDS.has(last) ? QUIET_MS.unfinished : QUIET_MS.normal;
+  return UNFINISHED_WORDS.has(last) ? QUIET_MS.unfinished : QUIET_MS.open;
 }
 
 export class Segmenter {

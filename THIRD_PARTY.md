@@ -24,7 +24,7 @@ Every element in the panel starts as a stock component from these libraries, res
 |---|---|---|---|
 | glasscn (kostyniuk/glasscn-components) | Liquid-glass look: Glass Card, Glass Toggle Group (tab bar and mode switch), Glass Button, Glass Icon, Glass Badge, Glass Item, Glass Radio Group, Glass Select, Glass Input, Glass Alert, Glass Separator, Liquid Switch, Liquid Glass, Glance, Avatar, Tooltip, and the glass variant styles | MIT | https://glasscn-components.vercel.app, registry `@glasscn`, in `src/components/glasscn/` |
 | Logo and background | `src/assets/logo.png` (the glass quotation mark, also the extension icon) and `src/assets/backgrounds/speak-dark.webp`, made for this project on 2026-11-04 with OpenAI's image model (`gpt-image-2.5-sunburst`); the background was then darkened | Generated for this project; OpenAI's terms assign the output to the user | not from another project |
-| AI Elements (Vercel) | Conversation, Message, Tool, Confirmation, Queue, Question, Chain of Thought, Shimmer, Transcription, Suggestion, Prompt Input, Model Selector, Environment Variables, Agent, Context, Image | Apache-2.0 | https://elements.ai-sdk.dev, in `src/components/ai-elements/` |
+| AI Elements (Vercel) | Conversation, Message, Tool, Confirmation, Queue, Question, Chain of Thought, Shimmer, Transcription, Suggestion, Prompt Input, Model Selector, Environment Variables, Agent, Context, Image, Checkpoint (the "heard nothing" and "panel was closed" markers) | Apache-2.0 | https://elements.ai-sdk.dev, in `src/components/ai-elements/` |
 | shadcn/ui, preset `radix-nova` | Collapsible, Kbd, and the parts AI Elements is built on | MIT | https://ui.shadcn.com, in `src/components/ui/` |
 | Base UI | Primitives under glasscn | MIT | https://base-ui.com |
 | Radix UI | Primitives under shadcn/ui | MIT | https://www.radix-ui.com |
@@ -32,8 +32,9 @@ Every element in the panel starts as a stock component from these libraries, res
 | Lucide | Every icon that isn't a brand logo | ISC | https://lucide.dev |
 | Sonner, through shadcn/ui's Sonner component (registry `new-york-v4/sonner`) | Toasts for confirmations ("Ollama works", "Signed out of ChatGPT") | MIT | https://sonner.emilkowal.ski, in `src/components/ui/sonner.tsx` |
 | selfh.st/icons, via `@iconify-json/selfhst` | Brand logos: Google Docs, Sheets, Slides, Meet, Drive, Google, Chrome, Gemini, Ollama, OpenRouter, OpenAI (for ChatGPT), Claude, Notion, Obsidian, Overleaf, GitHub, Microsoft Word, Zoom, Microsoft Teams. Used unchanged; one-colour marks use the set's own light and dark versions | CC BY 4.0, by selfh.st | https://selfh.st/icons, in `src/sidepanel/logos.tsx` |
-| theSVG, via `@iconify-json/thesvg-color` | The Anthropic, Groq and Hypothesis logos, which the set above lacks | MIT | https://thesvg.org |
+| theSVG, via `@iconify-json/thesvg-color` | The Anthropic, Groq and Hypothesis logos, which the set above lacks, and the model makers in the Ollama model menus (DeepSeek, Gemma, Kimi, MiniMax, Mistral, NVIDIA Nemotron, Qwen, Xiaomi, Zhipu) | MIT | https://thesvg.org |
 | unplugin-icons | Compiles only the logos used into the build, so nothing loads from the network | MIT | https://github.com/unplugin/unplugin-icons |
+| double-metaphone (words) | Hearing that a first word sounds like the wake word ("Subscribe" for "Scribe"), in `src/lib/wake.ts` | MIT | https://github.com/words/double-metaphone |
 | Geist (via Fontsource) | Typeface | OFL-1.1 | https://vercel.com/font |
 | Tailwind CSS | Styling | MIT | https://tailwindcss.com |
 | shiki | JSON highlighting inside Tool and Agent cards | MIT | https://shiki.style |
@@ -54,6 +55,9 @@ Every element in the panel starts as a stock component from these libraries, res
   - **Banner:** problems that stop Scribe working appear at the top, one at a time.
   - **Toasts:** only for confirmations, never for something that needs a fix.
 - **AI Elements** `tool.tsx`: `ToolHeader` takes an optional `icon`, shown instead of the wrench, so each card shows the file’s logo. Marked `local patch`.
+- **AI Elements** `tool.tsx`: card titles one step larger (`text-[0.9375rem]` instead of `text-sm`). Marked `local patch`.
+- **glasscn** `item.tsx`: row titles `text-base` and descriptions `text-[0.9375rem]`, two and one steps above shadcn's defaults, for the mockups' scale. Marked `local patch`.
+- **AI Elements** `checkpoint.tsx`: added from the registry as is; only the import paths point at `src/components/ui/`, as the shadcn CLI would write them.
 - **`tsconfig.app.json`**: `verbatimModuleSyntax` is off, because glasscn imports types without `import type`.
 - **`src/lib/shiki-lite.ts`** loads only the JSON and Bash grammars. **`src/lib/streamdown-stub.ts`** stands in for streamdown, which only `MessageResponse` uses and the panel never renders. Both are wired in through aliases in `vite.config.ts`.
 

@@ -34,7 +34,7 @@ type Tab = "live" | "outputs" | "ai" | "people";
 
 const STATUS: Record<string, { label: string; live?: boolean }> = {
   none: { label: "No Meet tab" },
-  loading: { label: "Reload Meet" },
+  loading: { label: "Connecting" },
   waiting: { label: "Not in a call" },
   "in-call": { label: "Captions off" },
   listening: { label: "Listening", live: true },
@@ -143,30 +143,30 @@ export function App() {
         <GlassCard className="glass-scope h-full w-full gap-0 overflow-hidden rounded-[24px] py-0 text-foreground dark:bg-black/60" glassVariant="frosted">
           <header className="flex items-start justify-between gap-2 px-4 pt-4">
             <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex items-center gap-2 font-semibold text-[17px]">
-                <img alt="" className="size-8 shrink-0" src={logo} title={buildStamp()} />
-                Speak and Edit
-                <GlassBadge className="gap-1.5" glassVariant="liquid">
-                  <span className={cn("size-1.5 rounded-full", status.live ? "animate-pulse bg-red-500" : "bg-muted-foreground")} />
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-semibold text-lg">
+                <img alt="" className="size-10 shrink-0" src={logo} title={buildStamp()} />
+                <span className="whitespace-nowrap">Speak and Edit</span>
+                <GlassBadge className="h-7 gap-2 px-3 text-sm" glassVariant="liquid">
+                  <span className={cn("size-2 rounded-full", status.live ? "animate-pulse bg-red-500" : "bg-muted-foreground")} />
                   {status.label}
                 </GlassBadge>
                 {recorder.timing && (
-                  <GlassBadge className="gap-1.5 text-red-700 tabular-nums dark:text-red-300" glassVariant="liquid">
-                    <span className={cn("size-1.5 rounded-full bg-red-500", !recorder.paused && "animate-pulse")} />
+                  <GlassBadge className="h-7 gap-2 px-3 text-red-700 text-sm tabular-nums dark:text-red-300" glassVariant="liquid">
+                    <span className={cn("size-2 rounded-full bg-red-500", !recorder.paused && "animate-pulse")} />
                     {recorder.paused ? `Recording paused ${elapsed}` : `Recording ${elapsed}`}
                   </GlassBadge>
                 )}
               </div>
-              <div className="flex min-w-0 items-center gap-1.5 font-medium text-[15px]">
-                <Logo className="size-4" name="meet" />
+              <div className="flex min-w-0 items-center gap-2 font-medium text-base">
+                <Logo className="size-5" name="meet" />
                 <span className="min-w-0 shrink truncate">{meet?.title ?? "Google Meet"}</span>
                 {(() => {
                   const shown = focus ?? (settings.files.length === 1 ? settings.files[0]! : null);
                   const name = (id: string, fallback: string) => state.files[id]?.title ?? fallback;
                   return (
-                    <span className="inline-flex min-w-0 shrink items-center gap-1.5 font-normal text-muted-foreground text-[13px]">
+                    <span className="inline-flex min-w-0 shrink items-center gap-1.5 font-normal text-muted-foreground text-sm">
                       <span aria-hidden="true">·</span>
-                      {shown ? <Logo className="size-3.5" name={FILE_LOGO[shown.kind]} /> : <FileTextIcon className="size-3.5" />}
+                      {shown ? <Logo className="size-4" name={FILE_LOGO[shown.kind]} /> : <FileTextIcon className="size-4" />}
                       <span className="truncate">
                         {settings.files.length === 0
                           ? "No file connected"
@@ -178,7 +178,7 @@ export function App() {
                   );
                 })()}
               </div>
-              {detail && <p className="text-muted-foreground text-xs">{detail}</p>}
+              {detail && <p className="text-muted-foreground text-sm">{detail}</p>}
             </div>
             <div className="flex items-center gap-1.5">
               <Tooltip>
@@ -201,16 +201,16 @@ export function App() {
 
           <div className="flex justify-center px-3 pt-3 pb-2">
             <GlassToggleGroup aria-label="Scribe sections" onValueChange={(v) => setTab(v as Tab)} value={tab}>
-              <GlassToggleGroupItem className="px-4 py-2 text-[15px]" value="live">
+              <GlassToggleGroupItem className="px-4 py-2.5 text-base" value="live">
                 Live
               </GlassToggleGroupItem>
-              <GlassToggleGroupItem className="px-4 py-2 text-[15px]" value="outputs">
+              <GlassToggleGroupItem className="px-4 py-2.5 text-base" value="outputs">
                 Outputs
               </GlassToggleGroupItem>
-              <GlassToggleGroupItem className="px-4 py-2 text-[15px]" value="ai">
+              <GlassToggleGroupItem className="px-4 py-2.5 text-base" value="ai">
                 AI model
               </GlassToggleGroupItem>
-              <GlassToggleGroupItem className="px-4 py-2 text-[15px]" value="people">
+              <GlassToggleGroupItem className="px-4 py-2.5 text-base" value="people">
                 People
               </GlassToggleGroupItem>
             </GlassToggleGroup>
@@ -231,10 +231,10 @@ export function App() {
               <DialogDescription>Eligible usage in this app uses your ChatGPT plan. Manage usage in your ChatGPT settings.</DialogDescription>
             </DialogHeader>
             <DialogFooter className="gap-2">
-              <GlassButton glassVariant="subtle" onClick={() => open(MANAGE_USAGE_URL)} size="sm">
+              <GlassButton glassVariant="subtle" onClick={() => open(MANAGE_USAGE_URL)} size="lg">
                 Manage usage
               </GlassButton>
-              <GlassButton onClick={() => setWelcome(false)} size="sm">
+              <GlassButton onClick={() => setWelcome(false)} size="lg">
                 Got it
               </GlassButton>
             </DialogFooter>

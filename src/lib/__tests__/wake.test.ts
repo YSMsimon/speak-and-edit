@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectWake, isResume, isWakeToken, looksLikeControl } from '../wake';
+import { detectWake, isResume, isWakeToken, looksLikeControl, soundsLikeWake } from '../wake';
 
 describe('detectWake', () => {
   it('finds the wake word at the start and strips punctuation', () => {
@@ -30,11 +30,23 @@ describe('detectWake', () => {
     expect(detectWake('Scribe.', 'Scribe').addressed).toBe(false);
   });
 
-  it('hears Meet’s “Subscribe!” as the wake word when it’s used to address Scribe', () => {
-    expect(detectWake('Subscribe! Can you take a screenshot?', 'Scribe')).toEqual({ addressed: true, command: 'Can you take a screenshot?' });
-    expect(detectWake('Subscribe, add Postgres to decisions', 'Scribe').addressed).toBe(true);
-    expect(detectWake('subscribe to the newsletter for updates', 'Scribe').addressed).toBe(false);
-    expect(detectWake('Describe the plan for Friday', 'Scribe').addressed).toBe(false);
+  it('treats a word that only sounds like the wake word as a maybe, for the AI to check', () => {
+    expect(detectWake('Subscribe! Can you take a screenshot?', 'Scribe')).toEqual({ addressed: false, maybe: true, command: 'Can you take a screenshot?' });
+    expect(detectWake('Subscribe, add Postgres to decisions', 'Scribe')).toMatchObject({ addressed: false, maybe: true });
+    expect(detectWake('Describe the plan for Friday', 'Scribe')).toMatchObject({ addressed: false, maybe: true, command: 'the plan for Friday' });
+    expect(detectWake('Scrub, add Postgres to decisions', 'Scribe').maybe).toBe(true);
+    expect(detectWake('Hey script, add Postgres to decisions', 'Scribe').maybe).toBe(true);
+    expect(detectWake('Subscribe!', 'Scribe')).toEqual({ addressed: false, command: '', wakeOnly: true, maybe: true });
+  });
+
+  it('is sure only of the wake word itself, and never a maybe for words that sound different', () => {
+    expect(detectWake('Scribe, add Postgres to decisions', 'Scribe').maybe).toBeUndefined();
+    expect(detectWake('Strive for Friday', 'Scribe')).toEqual({ addressed: false, command: '' });
+    expect(detectWake('Scream test is done', 'Scribe')).toEqual({ addressed: false, command: '' });
+    expect(detectWake('I subscribe to that', 'Scribe')).toEqual({ addressed: false, command: '' });
+    expect(soundsLikeWake('Subscribe', 'Scribe')).toBe(true);
+    expect(soundsLikeWake('Describe', 'Scribe')).toBe(true);
+    expect(soundsLikeWake('Tribe', 'Scribe')).toBe(false);
   });
 
   it('works with a custom wake word', () => {

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { checkProvider, modelFor, resolveProvider, visionModelFor } from "@/lib/ai/providers";
+import { contextWindow } from "@/lib/ai/context";
+import { listMeetings, loadMeeting, pickMeeting, pruneMeetings, saveMeeting } from "@/lib/sessions";
 import { normalizeError } from "@/lib/problems";
 import { ensureFolder, sharePublicly, upload, type DriveIO } from "@/lib/drive";
 import { defaultAi, Engine, type EngineState, type RecordingDone } from "@/lib/engine";
-import { batchUpdate, fetchOutline, getGoogleProfile, getGoogleToken, googleFetch, isRevisionConflict } from "@/lib/google";
+import { batchUpdate, fetchOutline, getGoogleProfile, googleFetch, googleToken, isRevisionConflict } from "@/lib/google";
 import { docsTarget } from "@/lib/targets/docs";
 import { notesTarget } from "@/lib/targets/notes";
 import { overleafTarget } from "@/lib/targets/overleaf";
@@ -12,7 +14,9 @@ import { readProject, writeProject } from "@/lib/overleaf/tab";
 import { loadVault, vaultAccess } from "@/lib/notes/vault";
 import { sheetsTarget } from "@/lib/targets/sheets";
 import { slidesTarget } from "@/lib/targets/slides";
-import type { CaptureReply, MeetState, ToMeet, ToPanel } from "@/lib/messages";
+import type { CaptureReply, MeetState, MissedLine, ToMeet, ToPanel } from "@/lib/messages";
+import { injectMeetScript } from "@/lib/meet-script";
+import { interactionLog } from "./log";
 import { DEFAULT_SETTINGS, loadSettings, onSettingsChanged, saveSettings, type ProviderId, type Settings } from "@/lib/settings";
 
 export function useSettings() {
@@ -52,7 +56,7 @@ function cachedResolver() {
 }
 
 const driveIO: DriveIO = {
-  token: () => getGoogleToken(false).catch(() => getGoogleToken(true)),
+  token: googleToken,
   fetch: (input, init) => fetch(input, init),
 };
 
@@ -92,6 +96,8 @@ export function useEngine(settingsRef: React.MutableRefObject<Settings>, update:
       visionModel: visionModelFor,
       resolveProvider: cachedResolver(),
       ai: defaultAi,
+      contextWindow: (id, s) => contextWindow(id, s),
+      log: (e) => interactionLog.add(e),
       updateSettings: update,
       control: {
         setListening: (paused) => pauseRef.current(paused),
@@ -155,11 +161,23 @@ export function useEngine(settingsRef: React.MutableRefObject<Settings>, update:
       return;
     }
     setMeetTabId(tab.id);
+    const ask = () => chrome.tabs.sendMessage(tab.id!, { type: "meet/get-state" } satisfies ToMeet) as Promise<MeetState>;
     try {
-      const reply = (await chrome.tabs.sendMessage(tab.id, { type: "meet/get-state" } satisfies ToMeet)) as MeetState;
-      engine.setMeet(reply);
+      engine.setMeet(await ask());
     } catch {
-      engine.setMeet({ status: "loading", title: null, userName: null, paused: false, detail: "Reload the Meet tab so Scribe can read it." });
+      // The tab was open before Scribe last loaded: put the Meet script in it instead of asking for a reload.
+      engine.setMeet({ status: "loading", title: null, userName: null, paused: false });
+      if (await injectMeetScript(tab.id)) {
+        for (let i = 0; i < 5; i++) {
+          await new Promise((r) => setTimeout(r, 200));
+          try {
+            engine.setMeet(await ask());
+            return;
+          } catch {
+            // Still starting up.
+          }
+        }
+      }
     }
   }, [engine, setMeetTabId]);
 
@@ -211,7 +229,79 @@ export function useEngine(settingsRef: React.MutableRefObject<Settings>, update:
   );
   pauseRef.current = setPaused;
 
+  useSavedMeeting(engine, state.meet?.code ?? null, state.meet?.title ?? null, meetTabRef);
+
   return { engine, state, meetTabId, setPaused, findMeet, controlsRef };
+}
+
+/**
+ * One saved meeting per Meet call, with nothing to manage: the Meet code picks it. Opening the
+ * panel continues the meeting (if it was used in the last 2 hours) and takes back the lines the
+ * Meet tab heard while the panel was closed. Every change is saved within a second.
+ */
+function useSavedMeeting(engine: Engine, code: string | null, title: string | null, meetTabRef: React.MutableRefObject<number | null>) {
+  const saving = useRef<Promise<void>>(Promise.resolve());
+  const saveNow = useCallback(() => {
+    const snap = engine.snapshot();
+    if (snap) saving.current = saving.current.then(() => saveMeeting(snap)).catch((e) => console.error("Saving the meeting failed", e));
+    return saving.current;
+  }, [engine]);
+
+  useEffect(() => {
+    void pruneMeetings(Date.now()).catch(() => undefined);
+    void interactionLog.prune().catch(() => undefined);
+  }, []);
+
+  // A Meet code that isn't this meeting's: save this one, then continue or start that one.
+  useEffect(() => {
+    if (!code || engine.meetingCode() === code) return;
+    let alive = true;
+    void (async () => {
+      await saveNow();
+      const found = pickMeeting(await listMeetings(), code, Date.now());
+      const saved = found ? await loadMeeting(found.id) : null;
+      if (!alive || engine.meetingCode() === code) return;
+      if (saved) engine.loadMeeting(saved);
+      else engine.beginMeeting(code, title);
+      const tabId = meetTabRef.current;
+      const missed = tabId ? ((await chrome.tabs.sendMessage(tabId, { type: "meet/take-missed" } satisfies ToMeet).catch(() => null)) as MissedLine[] | null) : null;
+      if (missed?.length) engine.addMissed(missed);
+      void saveNow();
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [engine, code, title, meetTabRef, saveNow]);
+
+  // Save after changes (not on every half-said word), when the panel closes, and retry the transcript when back online.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let saved = engine.revision();
+    const unsubscribe = engine.subscribe(() => {
+      if (timer || engine.revision() === saved) return;
+      timer = setTimeout(() => {
+        timer = null;
+        saved = engine.revision();
+        void saveNow();
+      }, 800);
+    });
+    const onHide = () => {
+      void interactionLog.flush();
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
+      void saveNow();
+    };
+    const onOnline = () => engine.retryTranscripts();
+    window.addEventListener("pagehide", onHide);
+    window.addEventListener("online", onOnline);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("online", onOnline);
+      if (timer) clearTimeout(timer);
+    };
+  }, [engine, saveNow]);
 }
 
 /** Tells the Meet tab whether to save each new slide by itself. */

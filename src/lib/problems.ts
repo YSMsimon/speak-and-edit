@@ -70,9 +70,10 @@ const RULES: Rule[] = [
   { test: /plan can’t do this request|unsupported_capability/i, problem: { severity: "error", title: "ChatGPT can’t do this request", body: "Try it with Ollama instead.", fixes: ["use-ollama"] } },
 
   // Ollama
-  { test: /Ollama blocked Scribe|OLLAMA_ORIGINS|\b403\b.*ollama|ollama.*\b403\b/i, problem: { severity: "error", title: "Ollama is blocking Scribe", body: "Allow Scribe in Ollama (steps under “Can’t connect?”), then restart Ollama.", fixes: ["ai-tab"] } },
+  { test: /Ollama blocked Scribe|OLLAMA_ORIGINS|\b403\b.*ollama|ollama.*\b403\b/i, problem: { severity: "error", title: "Ollama is blocking Scribe", body: "Allow Scribe in Ollama with the steps just below, then restart Ollama.", fixes: ["ai-tab"] } },
   { test: /Can’t reach Ollama|localhost:11434|127\.0\.0\.1:11434/i, problem: { severity: "error", title: "Ollama isn’t running", body: "Open the Ollama app, then try again.", fixes: ["retry", "get-ollama"] } },
   { test: /isn’t on this computer/i, problem: { severity: "warning", title: "That model isn’t downloaded", body: "Pick one of Ollama’s cloud models.", fixes: ["ai-tab"] } },
+  { test: /not included in your free usage|upgrade for included usage/i, problem: { severity: "warning", title: "Not in Ollama’s free plan", body: "Pick a model marked “tested with Scribe”, or add usage on ollama.com.", fixes: ["retry"] }, detail: false },
   { test: /\bunauthorized\b|sign in to ollama/i, problem: { severity: "error", title: "Sign in to Ollama", body: "Cloud models need the Ollama app signed in, from its menu.", fixes: ["retry"] } },
 
   // Your own API key
@@ -92,6 +93,7 @@ const RULES: Rule[] = [
   { test: /Reading the screen failed/i, problem: { severity: "error", title: "Couldn’t read the screen", body: "The AI model has to be able to see pictures.", fixes: ["retry", "ai-tab"] } },
 
   // Google
+  { test: /signed out of Google/i, problem: { severity: "info", title: "Signed out of Google", body: "Sign in to keep editing Docs, Sheets and Slides.", fixes: ["google-signin"] }, detail: false },
   { test: /Google sign-in was cancelled/i, problem: { severity: "info", title: "Google sign-in was cancelled", fixes: ["google-signin"] }, detail: false },
   { test: /Google sign-in isn’t set up/i, problem: { severity: "error", title: "Google sign-in isn’t set up", body: "This build has no Google client ID. See the README.", fixes: [] } },
   { test: /one more Google permission|insufficient.*scope/i, problem: { severity: "error", title: "Google needs one more permission", body: "Sign in to Google again and allow everything Scribe asks for.", fixes: ["google-signin"] } },

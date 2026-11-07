@@ -1,3 +1,4 @@
+import { EyeOffIcon, MessageSquareTextIcon, PencilLineIcon } from "lucide-react";
 
 import type { EngineState } from "@/lib/engine";
 import type { Role, Settings } from "@/lib/settings";
@@ -12,21 +13,25 @@ import { Logo } from "./logos";
 import { Hint, SectionLabel, SpeakerAvatar } from "./shared";
 
 const ROLES = [
-  { value: "edit", label: "Can edit" },
-  { value: "comment", label: "Comments only" },
-  { value: "ignore", label: "Ignore" },
+  { value: "edit", label: "Can edit", line: "Their requests change the files", icon: PencilLineIcon },
+  { value: "comment", label: "Comments only", line: "Saved as comments, text unchanged", icon: MessageSquareTextIcon },
+  { value: "ignore", label: "Ignore", line: "Scribe skips their lines", icon: EyeOffIcon },
 ];
 
 function RoleSelect({ value, onChange, label }: { value: Role; onChange: (r: Role) => void; label: string }) {
   return (
-    <GlassSelect items={ROLES} onValueChange={(v) => v && onChange(v as Role)} value={value}>
-      <GlassSelectTrigger aria-label={label} className="w-36" size="sm">
+    <GlassSelect items={ROLES.map(({ value, label }) => ({ value, label }))} onValueChange={(v) => v && onChange(v as Role)} value={value}>
+      <GlassSelectTrigger aria-label={label} className="h-10 w-36 text-sm data-[size=default]:h-10">
         <SelectValue />
       </GlassSelectTrigger>
-      <GlassSelectContent>
+      <GlassSelectContent className="min-w-64" align="end">
         {ROLES.map((r) => (
-          <SelectItem key={r.value} value={r.value}>
-            {r.label}
+          <SelectItem className="gap-3 py-2 pr-9" key={r.value} value={r.value}>
+            <r.icon className="size-5 text-muted-foreground" />
+            <div className="flex min-w-0 flex-col">
+              <span className="text-[0.9375rem] text-foreground">{r.label}</span>
+              <span className="text-muted-foreground text-xs">{r.line}</span>
+            </div>
           </SelectItem>
         ))}
       </GlassSelectContent>
@@ -44,7 +49,7 @@ export function PeopleTab(props: { state: EngineState; settings: Settings; updat
       <div className="flex flex-col gap-2">
         <SectionLabel>People in this call</SectionLabel>
         <Hint className="flex items-center gap-1">
-          <Logo className="size-3.5" name="meet" />
+          <Logo className="size-4" name="meet" />
           Names come from Meet’s captions
         </Hint>
         {names.length ? (
@@ -52,9 +57,9 @@ export function PeopleTab(props: { state: EngineState; settings: Settings; updat
             {names.map((name, i) => (
               <div key={name}>
                 {i > 0 && <GlassSeparator className="mx-3" glassVariant="subtle" />}
-                <GlassItem className="rounded-none border-0 px-3 py-3 shadow-none" glassVariant="clear" size="sm">
+                <GlassItem className="rounded-none border-0 px-4 py-3.5 shadow-none" glassVariant="clear">
                   <ItemMedia>
-                    <SpeakerAvatar className="size-10" name={name} src={state.avatars[name]} />
+                    <SpeakerAvatar className="size-11" name={name} src={state.avatars[name]} />
                   </ItemMedia>
                   <ItemContent>
                     <ItemTitle>{name}</ItemTitle>
@@ -70,7 +75,7 @@ export function PeopleTab(props: { state: EngineState; settings: Settings; updat
         ) : (
           <Hint>Nobody has spoken yet.</Hint>
         )}
-        <GlassItem className="py-3" glassVariant="subtle" size="sm">
+        <GlassItem className="px-4 py-3.5" glassVariant="subtle">
           <ItemContent>
             <ItemTitle>Anyone new</ItemTitle>
             <ItemDescription>People not listed above</ItemDescription>

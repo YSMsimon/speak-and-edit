@@ -48,7 +48,40 @@ const CLOUD: ProviderId[] = ["chatgpt", "openrouter", "anthropic", "openai", "ge
 /** Free models that run on Ollama's servers through the Ollama app. Nothing is downloaded. */
 export const OLLAMA_CLOUD_MODELS = ["gpt-oss:120b-cloud", "gemma4:31b-cloud", "gpt-oss:20b-cloud"];
 
-export const isOllamaCloud = (model: string) => /-cloud$/.test(model);
+/** The Ollama app names its cloud copies "gpt-oss:120b-cloud", or "glm-5.3:cloud" when there's no size tag. */
+export const isOllamaCloud = (model: string) => /[-:]cloud$/.test(model);
+export const cloudName = (name: string) => (name.includes(":") ? `${name}-cloud` : `${name}:cloud`);
+
+export interface OllamaModel {
+  name: string;
+  /** It can read a picture of the shared screen. */
+  vision: boolean;
+}
+
+let cloudList: { at: number; models: OllamaModel[] } | null = null;
+
+/**
+ * Every model Ollama runs on its own servers, from its public list (ollama.com/api/tags), named the
+ * way the Ollama app expects. Only chat models. Falls back to the three Scribe was tested with.
+ */
+export async function listOllamaCloudModels(fetcher: typeof fetch = fetch): Promise<OllamaModel[]> {
+  if (cloudList && Date.now() - cloudList.at < 10 * 60_000) return cloudList.models;
+  try {
+    const res = await fetcher("https://ollama.com/api/tags");
+    if (!res.ok) throw new Error(`ollama.com returned ${res.status}`);
+    const list = ((await res.json()) as { models?: { name: string; capabilities?: string[] }[] }).models ?? [];
+    const models = list
+      .filter((m) => !m.capabilities || m.capabilities.includes("completion"))
+      .map((m) => ({ name: cloudName(m.name), vision: m.capabilities?.includes("vision") ?? false }));
+    if (models.length) {
+      cloudList = { at: Date.now(), models };
+      return models;
+    }
+  } catch {
+    // Offline, or the list moved: the tested three still work.
+  }
+  return OLLAMA_CLOUD_MODELS.map((name) => ({ name, vision: name.startsWith("gemma") }));
+}
 
 /** True when lines leave this computer with the current choice. */
 export function sendsOffDevice(id: ProviderId | null, s: Settings): boolean {
@@ -156,7 +189,7 @@ export async function checkOllama(s: Settings): Promise<Availability> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (/403/.test(msg)) return { ok: false, detail: msg, fix: "OLLAMA_ORIGINS" };
-    return { ok: false, detail: `Can’t reach Ollama at ${s.ollamaUrl}.`, fix: "Start Ollama, then press Test." };
+    return { ok: false, detail: `Can’t reach Ollama at ${s.ollamaUrl}.`, fix: "Start the Ollama app; Scribe checks again by itself." };
   }
 }
 
