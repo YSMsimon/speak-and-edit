@@ -14,7 +14,8 @@
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare",
-    "test": "vitest run"
+    "test": "vitest run",
+    "release": "sh scripts/release.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.94",

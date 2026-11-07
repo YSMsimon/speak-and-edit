@@ -16,7 +16,8 @@ const publicKey = existsSync(KEY_FILE) ? readFileSync(KEY_FILE, 'utf8').trim() :
 
 export default defineConfig({
   srcDir: 'src',
-  // Screenshot builds (scripts/screens.mjs) go elsewhere, so the copy Chrome has loaded isn't touched.
+  // Screenshot builds (scripts/screens.mjs) and release builds (scripts/release.sh) go elsewhere,
+  // so the copy Chrome has loaded isn't touched.
   ...(process.env.SCRIBE_OUT ? { outDir: process.env.SCRIBE_OUT } : {}),
   // The end-to-end smoke test page (src/entrypoints/smoke) ships only in SCRIBE_SMOKE=1 builds.
   ...(process.env.SCRIBE_SMOKE ? {} : { filterEntrypoints: ['background', 'meet', 'sidepanel'] }),
@@ -82,7 +83,7 @@ export default defineConfig({
       __SCRIBE_BUILT__: JSON.stringify(process.env.SCRIBE_BUILT ?? new Date().toISOString()),
       // Smoke builds only: reload on a new build and run the smoke test on request (scripts/smoke-server.mjs).
       __SCRIBE_SMOKE__: JSON.stringify(Boolean(process.env.SCRIBE_SMOKE)),
-      __SCRIBE_SCREENS__: JSON.stringify(Boolean(process.env.SCRIBE_OUT)),
+      __SCRIBE_SCREENS__: JSON.stringify(Boolean(process.env.SCRIBE_SCREENS)),
     },
     // Brand logos (Google Docs, Ollama, Zoom…) from Iconify sets, compiled in at build time. See THIRD_PARTY.md.
     plugins: [tailwindcss(), Icons({ compiler: 'jsx', jsx: 'react' })],

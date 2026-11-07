@@ -54,6 +54,10 @@ Status: v0.9, in development. Unit-tested, the prompts are checked against a rea
 
 Planned: Zoom and Teams web, Claude through MCP, Notion, GitHub, Word, PDF.
 
+## Install
+
+Download `speak-and-edit-<version>-chrome.zip` from [Releases](https://github.com/YSMsimon/speak-and-edit/releases) and unzip it. In Chrome, open `chrome://extensions`, turn on Developer mode, click Load unpacked and pick the unzipped folder. 0.x versions are pre-releases; a Chrome Web Store listing comes later. Until Google reviews the app, Google Docs, Sheets and Slides sign-in only works for accounts added as testers.
+
 ## Build and load
 
 ```sh
@@ -67,6 +71,8 @@ SCRIBE_LIVE=1 pnpm test   # also runs 4 requests against a real model (Ollama cl
 In Chrome: `chrome://extensions` → Developer mode → Load unpacked → pick `.output/chrome-mv3`. Click the toolbar icon to open the side panel. Note the extension's ID on that page: Google sign-in is tied to it. To keep the same ID on every computer, put a public key in `.keys/public-key.b64` (git-ignored) and the build adds it to the manifest.
 
 `pnpm dev` starts a live-reloading build in a separate Chrome profile.
+
+To publish a release: `pnpm release 0.9.1`. It tests, builds and scans the zip, then tags and uploads it to GitHub Releases after you answer y. Add `--dry-run` to stop before anything is committed or pushed.
 
 ## Google sign-in (one-time)
 

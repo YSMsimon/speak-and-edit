@@ -15,7 +15,7 @@ const width = Number(process.argv[3] ?? 480);
 const height = Number(process.argv[4] ?? 860);
 const ext = path.join(root, ".output-screens", "chrome-mv3");
 
-execSync("pnpm exec wxt build", { cwd: root, stdio: "ignore", env: { ...process.env, SCRIBE_SMOKE: "1", SCRIBE_OUT: ".output-screens" } });
+execSync("pnpm exec wxt build", { cwd: root, stdio: "ignore", env: { ...process.env, SCRIBE_SMOKE: "1", SCRIBE_SCREENS: "1", SCRIBE_OUT: ".output-screens" } });
 mkdirSync(out, { recursive: true });
 
 const context = await chromium.launchPersistentContext(mkdtempSync(path.join(tmpdir(), "scribe-shots-")), {
