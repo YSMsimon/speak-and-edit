@@ -29,8 +29,10 @@ export default defineConfig({
   manifest: {
     name: 'Speak and Edit',
     description:
-      'Say an edit in a Google Meet call and it lands in your Google Doc, Sheet, Slides, Obsidian note or Overleaf project, credited to whoever said it. Can also save the shared screen.',
-    ...(publicKey ? { key: publicKey } : {}),
+      // At most 132 characters: the Chrome Web Store's limit.
+      'Say an edit in Google Meet and it lands in your Google Doc, Sheet, Slides, Obsidian note or Overleaf file, credited to the speaker.',
+    // Store builds (SCRIBE_STORE=1) leave the key out: the Web Store gives the extension its own ID.
+    ...(publicKey && !process.env.SCRIBE_STORE ? { key: publicKey } : {}),
     // tabCapture + activeTab: record the Meet tab, only after a click.
     // scripting: edit an Overleaf project through its open tab, only once Chrome allows overleaf.com (below).
     // alarms: smoke builds only, to check the local smoke server every 30 s.

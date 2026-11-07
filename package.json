@@ -1,6 +1,6 @@
 {
   "name": "speak-and-edit",
-  "description": "Say an edit in a Google Meet call; it lands in your Google Docs, Sheets, Slides, Obsidian or Overleaf, credited to whoever said it.",
+  "description": "Say an edit in Google Meet and it lands in your Google Doc, Sheet, Slides, Obsidian note or Overleaf file, credited to the speaker.",
   "private": true,
   "license": "MIT",
   "version": "0.9.0",
