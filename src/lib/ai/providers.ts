@@ -8,7 +8,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { browserAI, doesBrowserSupportBrowserAI } from "@browser-ai/core";
 import type { LanguageModel } from "ai";
 
-import type { AiModel } from "./agent";
+import type { AiModel, Reasoning } from "./agent";
 import { chatgptAccount, chatgptFetch } from "./chatgpt";
 
 import type { ProviderChoice, ProviderId, Settings } from "../settings";
@@ -94,7 +94,39 @@ export function sendsOffDevice(id: ProviderId | null, s: Settings): boolean {
 const STRICT: ProviderId[] = ["chrome", "chatgpt", "openai", "anthropic", "gemini", "groq"];
 
 export function modelFor(id: ProviderId, s: Settings): AiModel {
-  return { model: languageModelFor(id, s), mode: STRICT.includes(id) ? "strict" : "prompt" };
+  const reasoning = lowestReasoning(id, s.models[id] ?? "");
+  return { model: languageModelFor(id, s), mode: STRICT.includes(id) ? "strict" : "prompt", ...(reasoning ? { reasoning } : {}) };
+}
+
+/**
+ * The least thinking each model takes. Scribe's jobs are short (pick an action, a section, a line), and
+ * on its test cases the lowest level was as accurate and much faster (reasoning.eval.test.ts, 2026-11-07,
+ * 32 cases twice each):
+ *   Ollama gpt-oss 120b   64/64 → 64/64, median 1.64 s → 1.05 s
+ *   OpenAI gpt-5-mini     64/64 → 64/64, median 18.8 s → 5.5 s
+ *   Claude Haiku 5.5      64/64 → 64/64, p90 6.9 s → 4.6 s
+ * gpt-oss can't turn reasoning off and ignores "none", so it gets "low". gpt-5.1 and later already
+ * default to none. Chrome's built-in model has no such setting; OpenRouter's models vary, so it's left alone.
+ * A provider that refuses the setting gets the request again without it (agent.ts).
+ */
+export function lowestReasoning(id: ProviderId, model: string): Reasoning | undefined {
+  const m = model.toLowerCase();
+  if (id === "chrome" || id === "openrouter") return undefined;
+  if (m.includes("gpt-oss")) return "low";
+  switch (id) {
+    case "ollama":
+    case "anthropic":
+      return "none";
+    case "gemini":
+      return m.includes("flash") ? "none" : "low";
+    case "openai":
+    case "chatgpt":
+      if (/codex|^o\d/.test(m)) return "low";
+      if (/^gpt-5(-mini|-nano)?(-\d{4}-\d{2}-\d{2})?$/.test(m)) return "minimal";
+      return /^gpt-[5-9]/.test(m) ? "none" : undefined;
+    default:
+      return undefined;
+  }
 }
 
 /** The model that reads the shared screen: the provider's vision model if one is set, else its normal model.

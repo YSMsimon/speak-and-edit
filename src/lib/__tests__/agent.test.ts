@@ -1,6 +1,6 @@
 import { MockLanguageModelV4 } from 'ai/test';
 import { describe, expect, it } from 'vitest';
-import { extractJson, parseCommand, readScreen, settleControl, settleScreen } from '../ai/agent';
+import { answerQuestion, extractJson, parseCommand, readScreen, settleControl, settleScreen } from '../ai/agent';
 
 function replies(...texts: string[]) {
   const queue = [...texts];
@@ -122,5 +122,27 @@ describe('parseCommand: a change request answered like a question is asked once 
     const { looksLikeChange } = await import('../ai/agent');
     expect(['add a task: x', 'please mark login as done', 'can you put this in the deck', 'okay, change MySQL to Postgres'].every(looksLikeChange)).toBe(true);
     expect(["what's the launch date?", 'can you hear me', 'is the beta still on?'].some(looksLikeChange)).toBe(false);
+  });
+});
+
+describe('reasoning level', () => {
+  it('sends the model’s reasoning level with each request', async () => {
+    const model = replies(JSON.stringify({ action: 'append', file: null, section: 'Decisions', text: 'Postgres', find: null, replaceWith: null, cells: [], clarifyQuestion: null, options: [], screen: 'none', control: null }));
+    await parseCommand({ model, mode: 'prompt', reasoning: 'low' }, { speaker: 'Sam', command: 'add to decisions: postgres' }, ctx);
+    expect(model.doGenerateCalls[0]!.reasoning).toBe('low');
+  });
+
+  it('asks again without it when the provider refuses the setting', async () => {
+    let calls = 0;
+    const model = new MockLanguageModelV4({
+      doGenerate: async (options) => {
+        calls++;
+        if (options.reasoning) throw new Error("Unsupported value: 'reasoning_effort' does not support 'none' with this model.");
+        return { content: [{ type: 'text', text: 'December 1.' }], finishReason: { unified: 'stop', raw: 'stop' }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } }, warnings: [] };
+      },
+    });
+    const { answer } = await answerQuestion({ model, mode: 'prompt', reasoning: 'none' }, "what's the launch date?", ctx);
+    expect(answer).toBe('December 1.');
+    expect(calls).toBe(2);
   });
 });

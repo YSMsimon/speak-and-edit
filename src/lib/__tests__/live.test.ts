@@ -4,13 +4,15 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { confirmRequest, decideSmart, parseCommand, readScreen } from '../ai/agent';
+import { lowestReasoning } from '../ai/providers';
 import { buildOutline, describeOutline } from '../docs/outline';
 import { planEdit } from '../docs/plan';
 import { makeDoc, SPEC } from './fixtures';
 
 const live = process.env.SCRIBE_LIVE === '1';
 const MODEL = process.env.SCRIBE_MODEL ?? 'gpt-oss:120b-cloud';
-const ai = { model: createOpenAICompatible({ name: 'ollama', baseURL: 'http://localhost:11434/v1' }).chatModel(MODEL), mode: 'prompt' as const };
+// The reasoning level Scribe itself uses for this model (providers.ts).
+const ai = { model: createOpenAICompatible({ name: 'ollama', baseURL: 'http://localhost:11434/v1' }).chatModel(MODEL), mode: 'prompt' as const, reasoning: lowestReasoning('ollama', MODEL) };
 const outline = buildOutline(makeDoc(SPEC));
 const ctx = { outline: `File “Q4 Platform Spec” (Google Doc)\n${describeOutline(outline)}\n\nFile “Tracker” (Google Sheet)\nTab “Tasks” (columns: Task | Owner | Status)\n  row 2: Fix login | Wei | open`, recent: [] };
 
@@ -70,7 +72,7 @@ describe.skipIf(!live)(`live smart mode: ${MODEL}`, () => {
 
 
 const VISION = process.env.SCRIBE_VISION_MODEL ?? 'gemma4:31b-cloud';
-const eyes = { model: createOpenAICompatible({ name: 'ollama', baseURL: 'http://localhost:11434/v1' }).chatModel(VISION), mode: 'prompt' as const };
+const eyes = { model: createOpenAICompatible({ name: 'ollama', baseURL: 'http://localhost:11434/v1' }).chatModel(VISION), mode: 'prompt' as const, reasoning: lowestReasoning('ollama', VISION) };
 
 describe.skipIf(!live)(`live screen: ${VISION}`, () => {
   it('reads a table off a shared screen into Sheet rows', async () => {

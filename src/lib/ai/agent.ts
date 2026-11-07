@@ -17,7 +17,26 @@ import { z } from "zod";
 export interface AiModel {
   model: LanguageModel;
   mode: "strict" | "prompt";
+  /** How much the model may think before answering. Unset: the provider's default. */
+  reasoning?: Reasoning;
 }
+
+/**
+ * Sends the model's reasoning level; a provider that refuses it (an older model, a different API)
+ * gets the same request once more without it, so the setting can never break a request.
+ */
+async function withReasoning<R>(ai: AiModel, call: (r: { reasoning?: Reasoning }) => Promise<R>): Promise<R> {
+  if (!ai.reasoning) return call({});
+  try {
+    return await call({ reasoning: ai.reasoning });
+  } catch (e) {
+    if (/reasoning|thinking|effort/i.test(e instanceof Error ? e.message : String(e))) return call({});
+    throw e;
+  }
+}
+
+/** The AI SDK's provider-independent reasoning levels. */
+export type Reasoning = "provider-default" | "none" | "minimal" | "low" | "medium" | "high";
 
 const CELLS = z
   .array(z.object({ column: z.string(), value: z.string() }))
@@ -158,14 +177,15 @@ async function structured<S extends z.ZodTypeAny>(
 ): Promise<{ value: z.infer<S>; usage: Usage }> {
   if (ai.mode === "strict") {
     try {
-      const result = await generateText({
+      const result = await withReasoning(ai, (r) => generateText({
         model: ai.model,
         system: args.system,
         ...input(args.prompt, args.image),
+        ...r,
         output: Output.object({ schema: args.schema, name: args.name }),
         maxRetries: 1,
         abortSignal: args.signal,
-      });
+      }));
       if (result.output) return { value: plainSpaces(result.output as z.infer<S>), usage: toUsage(result.usage) };
     } catch {
       // Fall through to the prompt route below.
@@ -175,7 +195,7 @@ async function structured<S extends z.ZodTypeAny>(
   let prompt = args.prompt;
   let total: Usage = { inputTokens: 0, outputTokens: 0 };
   for (let attempt = 0; attempt < 2; attempt++) {
-    const result = await generateText({ model: ai.model, system, ...input(prompt, args.image), maxRetries: 1, abortSignal: args.signal });
+    const result = await withReasoning(ai, (r) => generateText({ model: ai.model, system, ...input(prompt, args.image), ...r, maxRetries: 1, abortSignal: args.signal }));
     const u = toUsage(result.usage);
     total = { inputTokens: total.inputTokens + u.inputTokens, outputTokens: total.outputTokens + u.outputTokens };
     let problem: string;
@@ -343,15 +363,16 @@ export async function answerQuestion(
   ctx: Context,
   signal?: AbortSignal
 ): Promise<{ answer: string; usage: Usage }> {
-  const result = await generateText({
+  const result = await withReasoning(ai, (r) => generateText({
     model: ai.model,
+    ...r,
     system: "Answer the meeting's question from the files in one or two short sentences. If the files don't say, say so.",
     prompt: [`Files:\n${ctx.outline}`, ctx.earlier ? `Earlier in the meeting:\n${ctx.earlier}` : "", `Recent lines:\n${ctx.recent.join("\n")}`, `Question: ${question}`]
       .filter(Boolean)
       .join("\n\n"),
     maxRetries: 1,
     abortSignal: signal,
-  });
+  }));
   return { answer: plainSpaces(result.text.trim()), usage: toUsage(result.usage) };
 }
 
@@ -451,13 +472,14 @@ export async function summarizeMeeting(
   input: { previous: string | null; lines: string[] },
   signal?: AbortSignal
 ): Promise<{ summary: string; usage: Usage }> {
-  const result = await generateText({
+  const result = await withReasoning(ai, (r) => generateText({
     model: ai.model,
+    ...r,
     system: SUMMARY_INSTRUCTIONS,
     prompt: [`Notes so far:\n${input.previous ?? "(none yet)"}`, `Next lines:\n${input.lines.join("\n")}`].join("\n\n"),
     maxRetries: 1,
     abortSignal: signal,
-  });
+  }));
   return { summary: result.text.trim(), usage: toUsage(result.usage) };
 }
 

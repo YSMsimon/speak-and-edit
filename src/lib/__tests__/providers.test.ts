@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkProvider, cloudName, ensureAccess, isOllamaCloud, listOllamaCloudModels, modelFor, PROVIDER_ORIGINS, sendsOffDevice } from '../ai/providers';
+import { checkProvider, cloudName, ensureAccess, isOllamaCloud, listOllamaCloudModels, lowestReasoning, modelFor, PROVIDER_ORIGINS, sendsOffDevice } from '../ai/providers';
 import { describeProblem } from '../problems';
 import { ADVANCED_PROVIDERS, DEFAULT_SETTINGS, type Settings } from '../settings';
 
@@ -70,5 +70,24 @@ describe('Ollama cloud models', () => {
       { name: 'gpt-oss:120b-cloud', vision: false },
       { name: 'kimi-k3:cloud', vision: true },
     ]);
+  });
+});
+
+describe('lowest reasoning per model', () => {
+  it('gives each model the least thinking it accepts', () => {
+    expect(lowestReasoning('ollama', 'gpt-oss:120b-cloud')).toBe('low');
+    expect(lowestReasoning('ollama', 'gemma4:31b-cloud')).toBe('none');
+    expect(lowestReasoning('groq', 'openai/gpt-oss-20b')).toBe('low');
+    expect(lowestReasoning('openai', 'gpt-5-mini')).toBe('minimal');
+    expect(lowestReasoning('openai', 'gpt-5.4-mini')).toBe('none');
+    expect(lowestReasoning('chatgpt', 'gpt-5.3-codex')).toBe('low');
+    expect(lowestReasoning('anthropic', 'claude-haiku-5-5')).toBe('none');
+    expect(lowestReasoning('gemini', 'gemini-2.5-flash-lite')).toBe('none');
+    expect(lowestReasoning('chrome', 'text')).toBeUndefined();
+    expect(lowestReasoning('openrouter', 'openrouter/auto')).toBeUndefined();
+  });
+
+  it('is on the model Scribe builds', () => {
+    expect(modelFor('ollama', DEFAULT_SETTINGS).reasoning).toBe('low');
   });
 });

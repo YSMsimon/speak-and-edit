@@ -126,6 +126,19 @@ Each request gets the last 6 lines, plus older lines that fit about **10% of the
 
 The cap is for speed and cost, not space: an hour of talk is about 12k tokens, and each request reads the whole budget again. Context windows: Ollama cloud models 128k (local Ollama models keep Ollama's 4k default), Chrome's built-in model 4k, OpenRouter as its model list says, others from what each provider offers. Smart mode judges every line, so it gets only the summary. Record all uses no model, so nothing is summarized there.
 
+### How much the AI thinks
+
+Every request asks the model for the least reasoning it takes (`lowestReasoning` in `src/lib/ai/providers.ts`). Scribe's jobs are short, and on its 32 test cases (run twice each, `src/lib/__tests__/reasoning.eval.test.ts`, 2026-11-07) the lowest level was as accurate and faster:
+
+| Model | Accuracy, default → lowest | Median | p90 |
+|---|---|---|---|
+| Ollama gpt-oss 120b (`low`) | 64/64 → 64/64 | 1.64 s → 1.05 s | 2.68 s → 1.38 s |
+| OpenAI gpt-5-mini (`minimal`) | 64/64 → 64/64 | 18.8 s → 5.5 s | 41.0 s → 7.2 s |
+| Claude Haiku 5.5 (`none`) | 64/64 → 64/64 | 4.16 s → 3.83 s | 6.90 s → 4.62 s |
+| OpenAI gpt-5.4-mini (`none`) | 64/64 → 63/64 | 3.16 s → 3.18 s | 3.80 s → 3.65 s |
+
+gpt-oss can't turn reasoning off (it ignores `none`), so it gets `low`; gpt-5.1 and later already default to none; gemma4 (the shared-screen model) doesn't reason. Chrome's built-in model has no reasoning setting, and OpenRouter's models vary, so both are left alone. If a provider refuses the setting, Scribe sends the request again without it. To rerun: `SCRIBE_EVAL=1 pnpm exec vitest run src/lib/__tests__/reasoning.eval.test.ts` (OpenAI and Anthropic rows need `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`).
+
 ## The AI log, for finding mistakes
 
 Scribe keeps a log of every AI call (what went in, what came out, how long, any error), what happened to each line, and what you did about it (approve, discard, accept, reject, retry, answer a question). It stays on this computer for 30 days (`src/lib/interactions.ts`); Outputs › Also › Saved meetings has Export (a `.jsonl` file) and Delete. Smoke builds also append it to `.smoke/interactions.jsonl` through the local dev server, which accepts it only from the extension.
