@@ -2,15 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   AnchorIcon,
   CrosshairIcon,
-  DownloadIcon,
   ExternalLinkIcon,
-  HistoryIcon,
   MessageSquareQuoteIcon,
   PlusIcon,
   RefreshCwIcon,
   ScrollTextIcon,
   ShieldCheckIcon,
-  Trash2Icon,
   XIcon,
 } from "lucide-react";
 
@@ -20,26 +17,22 @@ import { fileUrl, KIND_LABEL, parseGoogleUrl, TAB_PATTERNS, titleFromTab, type F
 import { getGoogleToken, hasGoogleClient, signOutGoogle } from "@/lib/google";
 import { captureFile, focusFile, transcriptFile, type Settings } from "@/lib/settings";
 import { AlertDescription, AlertTitle } from "@/components/glasscn/ui/alert";
-import { ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/glasscn/ui/item";
+import { ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/glasscn/ui/item";
 import { RadioGroup } from "@/components/glasscn/ui/radio-group";
 import { SelectItem, SelectValue } from "@/components/glasscn/ui/select";
 import { GlassAlert } from "@/components/glasscn/ui/glasscn/glass-alert";
 import { GlassBadge } from "@/components/glasscn/ui/glasscn/glass-badge";
 import { GlassButton } from "@/components/glasscn/ui/glasscn/glass-button";
-import { GlassCard } from "@/components/glasscn/ui/glasscn/glass-card";
 import { GlassItem } from "@/components/glasscn/ui/glasscn/glass-item";
 import { GlassSelect, GlassSelectContent, GlassSelectTrigger } from "@/components/glasscn/ui/glasscn/glass-select";
-import { GlassSeparator } from "@/components/glasscn/ui/glasscn/glass-separator";
 import { LiquidSwitch } from "@/components/glasscn/ui/glasscn/liquid-switch";
 
 import { FILE_LOGO, Logo } from "./logos";
 import { toast } from "sonner";
-import { deleteAllMeetings, listMeetings } from "@/lib/sessions";
-import { interactionLog } from "./log";
 
 import { DEMO } from "./demo";
 import { ProblemCard } from "./problem";
-import { ChoiceRow, Hint, PickList, SectionLabel } from "./shared";
+import { ChoiceRow, Hint, ListCard, ListRow, PickList, SectionLabel } from "./shared";
 
 /** The square tile every logo and icon sits in, so rows line up. */
 function Tile({ children }: { children: React.ReactNode }) {
@@ -221,55 +214,50 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
         )}
 
         {settings.files.length > 0 ? (
-          <GlassCard className="gap-0 py-1" glassVariant="subtle">
-            <ItemGroup className="gap-0">
-              {settings.files.map((f, i) => {
-                const info = state.files[f.id];
-                const parts = info?.parts ?? [];
-                return (
-                  <div key={f.id}>
-                    {i > 0 && <GlassSeparator className="mx-3" glassVariant="subtle" />}
-                    <GlassItem className="gap-x-3.5 gap-y-2 rounded-none border-0 px-4 py-3.5 shadow-none" glassVariant="clear">
-                      <Tile>
-                        <Logo name={FILE_LOGO[f.kind]} />
-                      </Tile>
-                      <ItemContent className="min-w-0">
-                        <ItemTitle className="flex flex-wrap items-center gap-1.5">
-                          <span className="truncate">{fileName(f)}</span>
-                          {focus?.id === f.id && settings.files.length > 1 && <GlassBadge className="h-6 px-2.5 text-sm" glassVariant="liquid">Working on</GlassBadge>}
-                        </ItemTitle>
-                      </ItemContent>
-                      <ItemActions>
-                        <GlassButton aria-label={`Open ${f.title}`} glassVariant="subtle" onClick={() => void chrome.tabs.create({ url: fileUrl(f) })} className="rounded-full" size="icon-lg">
-                          <ExternalLinkIcon />
-                        </GlassButton>
-                        <GlassButton aria-label={`Disconnect ${f.title}`} glassVariant="subtle" onClick={() => removeFile(f.id)} className="rounded-full" size="icon-lg">
-                          <XIcon />
-                        </GlassButton>
-                      </ItemActions>
-                      {/* Sections and problems use the row's full width, under the title. */}
-                      {(parts.length > 0 || info?.error) && (
-                        <div className="flex basis-full flex-col gap-1.5 pl-[3.125rem]">
-                          {info?.error && <ProblemCard onRetry={() => void engine.refreshFiles()} problem={info.error} />}
-                          {parts.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {parts.slice(0, 4).map((p) => (
-                                <GlassBadge className="h-6 px-2.5 text-sm" glassVariant="subtle" key={p}>
-                                  <AnchorIcon />
-                                  {p}
-                                </GlassBadge>
-                              ))}
-                              {parts.length > 4 && <GlassBadge className="h-6 px-2.5 text-sm" glassVariant="subtle">+{parts.length - 4}</GlassBadge>}
-                            </div>
-                          )}
+          <ListCard label="Connected files">
+            {settings.files.map((f) => {
+              const info = state.files[f.id];
+              const parts = info?.parts ?? [];
+              return (
+                <ListRow className="gap-x-3.5 gap-y-2 px-4 py-3.5" key={f.id}>
+                  <Tile>
+                    <Logo name={FILE_LOGO[f.kind]} />
+                  </Tile>
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate">{fileName(f)}</span>
+                      {focus?.id === f.id && settings.files.length > 1 && <GlassBadge className="h-6 px-2.5 text-sm" glassVariant="liquid">Working on</GlassBadge>}
+                    </ItemTitle>
+                  </ItemContent>
+                  <ItemActions>
+                    <GlassButton aria-label={`Open ${f.title}`} glassVariant="subtle" onClick={() => void chrome.tabs.create({ url: fileUrl(f) })} className="rounded-full" size="icon-lg">
+                      <ExternalLinkIcon />
+                    </GlassButton>
+                    <GlassButton aria-label={`Disconnect ${f.title}`} glassVariant="subtle" onClick={() => removeFile(f.id)} className="rounded-full" size="icon-lg">
+                      <XIcon />
+                    </GlassButton>
+                  </ItemActions>
+                  {/* Sections and problems use the row's full width, under the title. */}
+                  {(parts.length > 0 || info?.error) && (
+                    <div className="flex basis-full flex-col gap-1.5 pl-[3.125rem]">
+                      {info?.error && <ProblemCard onRetry={() => void engine.refreshFiles()} problem={info.error} />}
+                      {parts.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {parts.slice(0, 4).map((p) => (
+                            <GlassBadge className="h-6 px-2.5 text-sm" glassVariant="subtle" key={p}>
+                              <AnchorIcon />
+                              {p}
+                            </GlassBadge>
+                          ))}
+                          {parts.length > 4 && <GlassBadge className="h-6 px-2.5 text-sm" glassVariant="subtle">+{parts.length - 4}</GlassBadge>}
                         </div>
                       )}
-                    </GlassItem>
-                  </div>
-                );
-              })}
-            </ItemGroup>
-          </GlassCard>
+                    </div>
+                  )}
+                </ListRow>
+              );
+            })}
+          </ListCard>
         ) : (
           <Hint>No files yet. Open a Google Doc, Sheet or Slides file in this window and it appears here.</Hint>
         )}
@@ -407,64 +395,8 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
             />
           </ItemActions>
         </GlassItem>
-        <SavedMeetings engine={engine} />
       </div>
     </section>
   );
 }
 
-/**
- * Meetings are saved on this computer (never synced) and kept 30 days. One button deletes them all,
- * this one included; the first click only asks.
- */
-/** The AI log as a .jsonl file, for scripts/eval-report.mjs. Saved by the browser like any download. */
-async function exportLog() {
-  const text = await interactionLog.exportJsonl();
-  const url = URL.createObjectURL(new Blob([text], { type: "application/x-ndjson" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `speak-and-edit-ai-log-${new Date().toISOString().slice(0, 10)}.jsonl`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
-
-function SavedMeetings({ engine }: { engine: Engine }) {
-  const [count, setCount] = useState<number | null>(null);
-  const [asking, setAsking] = useState(false);
-  useEffect(() => {
-    void listMeetings().then((all) => setCount(all.filter((m) => m.lines > 0).length));
-  }, []);
-  useEffect(() => {
-    if (!asking) return;
-    const t = setTimeout(() => setAsking(false), 4000);
-    return () => clearTimeout(t);
-  }, [asking]);
-  const remove = async () => {
-    setAsking(false);
-    const n = await deleteAllMeetings();
-    await interactionLog.clear();
-    engine.clearMeeting();
-    setCount(0);
-    toast.success(n ? `Deleted ${n} saved ${n === 1 ? "meeting" : "meetings"}` : "Nothing was saved");
-  };
-  return (
-    <GlassItem className="gap-3.5 px-4 py-3.5" glassVariant="subtle">
-      <Tile>
-        <HistoryIcon />
-      </Tile>
-      <ItemContent className="min-w-0">
-        <ItemTitle>Saved meetings{count ? ` (${count})` : ""}</ItemTitle>
-        <ItemDescription className="line-clamp-2">Meetings and the AI log, on this computer, kept 30 days</ItemDescription>
-      </ItemContent>
-      <ItemActions>
-        <GlassButton aria-label="Export the AI log" className="rounded-full" glassVariant="subtle" onClick={() => void exportLog()} size="icon-lg" title="Export the AI log">
-          <DownloadIcon />
-        </GlassButton>
-        <GlassButton aria-label={asking ? "Delete all saved meetings, this one too" : "Delete saved meetings"} glassVariant="subtle" onClick={() => (asking ? void remove() : setAsking(true))} size="lg">
-          <Trash2Icon />
-          {asking ? "Delete all?" : "Delete"}
-        </GlassButton>
-      </ItemActions>
-    </GlassItem>
-  );
-}

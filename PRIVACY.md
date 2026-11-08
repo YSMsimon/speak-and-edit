@@ -26,7 +26,7 @@ Kept in Chrome's storage on this computer, never synced:
 - saved meetings (the lines, results and summaries), kept 30 days
 - a log of the AI requests and their results, kept 30 days
 
-Outputs › Saved meetings › Delete removes the meetings and the log. Removing the extension removes everything it stored.
+Both are deleted after 30 days. Removing the extension removes everything it stored.
 
 ## Google user data
 

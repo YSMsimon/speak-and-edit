@@ -4,13 +4,11 @@ import type { EngineState } from "@/lib/engine";
 import type { Role, Settings } from "@/lib/settings";
 import { ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/glasscn/ui/item";
 import { SelectItem, SelectValue } from "@/components/glasscn/ui/select";
-import { GlassCard } from "@/components/glasscn/ui/glasscn/glass-card";
 import { GlassItem } from "@/components/glasscn/ui/glasscn/glass-item";
 import { GlassSelect, GlassSelectContent, GlassSelectTrigger } from "@/components/glasscn/ui/glasscn/glass-select";
-import { GlassSeparator } from "@/components/glasscn/ui/glasscn/glass-separator";
 
 import { Logo } from "./logos";
-import { Hint, SectionLabel, SpeakerAvatar } from "./shared";
+import { Hint, ListCard, ListRow, SectionLabel, SpeakerAvatar } from "./shared";
 
 const ROLES = [
   { value: "edit", label: "Can edit", line: "Their requests change the files", icon: PencilLineIcon },
@@ -24,7 +22,7 @@ function RoleSelect({ value, onChange, label }: { value: Role; onChange: (r: Rol
       <GlassSelectTrigger aria-label={label} className="h-10 w-36 text-sm data-[size=default]:h-10">
         <SelectValue />
       </GlassSelectTrigger>
-      <GlassSelectContent className="min-w-64" align="end">
+      <GlassSelectContent className="min-w-76" align="end">
         {ROLES.map((r) => (
           <SelectItem className="gap-3 py-2 pr-9" key={r.value} value={r.value}>
             <r.icon className="size-5 text-muted-foreground" />
@@ -53,25 +51,22 @@ export function PeopleTab(props: { state: EngineState; settings: Settings; updat
           Names come from Meet’s captions
         </Hint>
         {names.length ? (
-          <GlassCard className="gap-0 py-1" glassVariant="subtle">
-            {names.map((name, i) => (
-              <div key={name}>
-                {i > 0 && <GlassSeparator className="mx-3" glassVariant="subtle" />}
-                <GlassItem className="rounded-none border-0 px-4 py-3.5 shadow-none" glassVariant="clear">
-                  <ItemMedia>
-                    <SpeakerAvatar className="size-11" name={name} src={state.avatars[name]} />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{name}</ItemTitle>
-                    <ItemDescription>{state.speakers[name] ? `Spoke ${state.speakers[name]} times` : "Not heard yet"}</ItemDescription>
-                  </ItemContent>
-                  <ItemActions>
-                    <RoleSelect label={`Role for ${name}`} onChange={(r) => setRole(name, r)} value={settings.roles[name] ?? settings.defaultRole} />
-                  </ItemActions>
-                </GlassItem>
-              </div>
+          <ListCard label="People in this call">
+            {names.map((name) => (
+              <ListRow className="px-4 py-3.5" key={name}>
+                <ItemMedia>
+                  <SpeakerAvatar className="size-11" name={name} src={state.avatars[name]} />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>{name}</ItemTitle>
+                  <ItemDescription>{state.speakers[name] ? `Spoke ${state.speakers[name]} times` : "Not heard yet"}</ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <RoleSelect label={`Role for ${name}`} onChange={(r) => setRole(name, r)} value={settings.roles[name] ?? settings.defaultRole} />
+                </ItemActions>
+              </ListRow>
             ))}
-          </GlassCard>
+          </ListCard>
         ) : (
           <Hint>Nobody has spoken yet.</Hint>
         )}

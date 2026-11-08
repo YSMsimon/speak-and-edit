@@ -97,7 +97,7 @@ There is nothing to manage: the Meet code in the address decides which meeting i
 - **Lines said while the panel was closed** are kept by the Meet tab and come back when the panel opens, under "Heard while the panel was closed, not run". They are never run as requests: "Scribe, delete that" from ten minutes ago mustn't fire late. In Record all they still go into the transcript.
 - **Leaving the call and coming back** (Rejoin, a closed tab and a new one, a dropped connection) leaves a line like "Scribe heard nothing from 14:20 to 14:23", so nobody thinks Scribe ignored them. Meet only shows captions to people in the call, so what was said then can't be recovered.
 - **A new meeting starts** for a different Meet code, or for the same code after 2 hours without use (a weekly event keeps its code).
-- **Where:** `chrome.storage.local`, on this computer only, never synced or sent anywhere. Meetings are kept 30 days. Outputs › Also › Saved meetings › Delete removes them all, the open one too.
+- **Where:** `chrome.storage.local`, on this computer only, never synced or sent anywhere. Meetings are kept 30 days, then deleted. Removing the extension deletes them all.
 - **A dropped connection:** transcript lines that fail are sent again with the next batch (3 tries), and all of them again when Chrome is back online.
 
 ### How much of the meeting the AI sees
@@ -123,11 +123,11 @@ gpt-5.1 and later already default to none. Chrome's built-in model has no reason
 
 ## The AI log, for finding mistakes
 
-Scribe keeps a log of every AI call (what went in, what came out, how long, any error), what happened to each line, and what you did about it (approve, discard, accept, reject, retry, answer a question). It stays on this computer for 30 days (`src/lib/interactions.ts`); Outputs › Also › Saved meetings has Export (a `.jsonl` file) and Delete. Smoke builds also append it to `.smoke/interactions.jsonl` through the local dev server, which accepts it only from the extension.
+Scribe keeps a log of every AI call (what went in, what came out, how long, any error), what happened to each line, and what you did about it (approve, discard, accept, reject, retry, answer a question). It stays on this computer for 30 days (`src/lib/interactions.ts`). Smoke builds also append it to `.smoke/interactions.jsonl` through the local dev server, which accepts it only from the extension.
 
 ```sh
 node scripts/eval-report.mjs                 # reads .smoke/interactions.jsonl
-node scripts/eval-report.mjs export.jsonl    # or an exported log
+node scripts/eval-report.mjs other.jsonl     # or another log file
 ```
 
 The report sums up calls, errors, latency and outcomes, and flags the lines most likely to be mistakes: the AI failed or asked "which one?", a change was taken as nothing or as a question, you rejected, discarded or retried, the same request was said again soon after, the wake-word check said no and the person then said the wake word, or a call took over 8 s. Each flagged line goes to `.evals/candidates-<date>.jsonl` with its full AI inputs and outputs (git-ignored, it holds real meeting content), to become eval cases and few-shot examples. The prompts in `src/lib/ai/agent.ts` already carry a first set of few-shot examples, written on made-up files that differ from the ones the tests use.

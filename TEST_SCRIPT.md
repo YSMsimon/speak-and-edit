@@ -232,7 +232,7 @@ Every line here is a request to Scribe itself. Each one shows a card titled **Sc
 | ☐ 9.12 | "Scribe, switch to Smart mode, work on the doc, and ask before writing." | One card with three changes. Then say "Scribe, switch to commands mode and use any file" to go back. |
 | ☐ 9.13 | Set yourself to **Comments only** in People. "Scribe, switch to Smart mode." | A red card: comments-only people can't change Scribe's settings. Set yourself back to **Can edit**. |
 
-## 10. Saved meetings, leaving the call, background tab (about 10 minutes)
+## 10. Saved meetings, leaving the call, background tab (about 9 minutes)
 
 Commands mode, Auto, the test Doc as the working file.
 
@@ -244,10 +244,9 @@ Commands mode, Auto, the test Doc as the working file.
 | ☐ 10.4 | Close the Meet tab, open the meeting link again in a new tab and join. | Same meeting in the panel (nothing lost), with a "heard nothing" line for the time in between. |
 | ☐ 10.5 | Quit Chrome completely, reopen it, rejoin and open the panel. | Same meeting, everything still there. |
 | ☐ 10.6 | About 25 lines after something specific was said (a number, a date), say "Scribe, add what <their name> said about … to decisions." | It finds the right line from earlier, not just the last few. |
-| ☐ 10.7 | Outputs › Also › Saved meetings › Delete, then Delete all? | The Live tab empties and a toast says how many were deleted. The call keeps going as a new meeting. |
-| ☐ 10.8 | Say "Scribe, add to decisions." then, after about a second, "We're using Postgres 16." | One request: Postgres 16 under Decisions. Meet's first full stop doesn't cut it in half. |
-| ☐ 10.9 | Switch to another tab so Meet opens its picture-in-picture window, and keep talking for a minute. | The header still says Listening, and your lines keep arriving. |
-| ☐ 10.10 | After the call, run `node scripts/eval-report.mjs`. | A report with the calls, outcomes and any flagged mistakes from this call. |
+| ☐ 10.7 | Say "Scribe, add to decisions." then, after about a second, "We're using Postgres 16." | One request: Postgres 16 under Decisions. Meet's first full stop doesn't cut it in half. |
+| ☐ 10.8 | Switch to another tab so Meet opens its picture-in-picture window, and keep talking for a minute. | The header still says Listening, and your lines keep arriving. |
+| ☐ 10.9 | After the call, run `node scripts/eval-report.mjs` (smoke builds only: they write the log to `.smoke/interactions.jsonl`). | A report with the calls, outcomes and any flagged mistakes from this call. |
 
 ---
 

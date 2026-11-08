@@ -54,11 +54,14 @@ function GlassSelectContent({ className, ...props }: React.ComponentProps<typeof
     <SelectContent
       data-slot="glass-select-content"
       // local patch: open under the trigger instead of over it, near-solid dark glass (nothing shows through), the trigger's width.
+      // Also padding (p-1.5, like the Live tab's menus) so the highlighted row and its text don't touch the border:
+      // shadcn/ui pads its select list, and this copy had lost that.
       alignItemWithTrigger={false}
       sideOffset={6}
       className={cn(
         variant !== "liquid-refract" && glassVariantStyles[variant],
-        "min-w-[var(--anchor-width)] rounded-xl border border-white/30 bg-white/80 text-foreground shadow-2xl ring-1 ring-white/20 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95 dark:ring-white/10",
+        "min-w-[var(--anchor-width)] rounded-xl border border-white/30 bg-white/80 p-1.5 text-foreground shadow-2xl ring-1 ring-white/20 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95 dark:ring-white/10",
+        "[&_[data-slot=select-item]]:rounded-lg [&_[data-slot=select-item]]:pl-2.5",
         "[&_[data-slot=select-item]:focus]:bg-white/70 [&_[data-slot=select-item]:focus]:text-black dark:[&_[data-slot=select-item]:focus]:bg-white/12 dark:[&_[data-slot=select-item]:focus]:text-white",
         className,
       )}

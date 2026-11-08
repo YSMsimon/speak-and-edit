@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { FileTextIcon, PauseIcon, PlayIcon } from "lucide-react";
+import { CircleQuestionMarkIcon, FileTextIcon, PauseIcon, PlayIcon } from "lucide-react";
 
 import { FILE_LOGO, Logo } from "./logos";
 
@@ -139,10 +139,11 @@ export function App() {
         </div>
         <div className="h-svh w-full p-2">
         <GlassCard className="glass-scope h-full w-full gap-0 overflow-hidden rounded-[24px] py-0 text-foreground dark:bg-black/60" glassVariant="frosted">
-          <header className="flex items-start justify-between gap-2 px-4 pt-4">
-            <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-semibold text-lg">
-                <img alt="" className="size-10 shrink-0" src={logo} title={buildStamp()} />
+          <header className="flex flex-col gap-1.5 px-4 pt-4">
+            {/* The pause button sits on the first row only, so the Meet line below gets the full width. */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-semibold text-lg">
+                <img alt="" className="size-7 shrink-0" src={logo} title={buildStamp()} />
                 <span className="whitespace-nowrap">Speak and Edit</span>
                 <GlassBadge className="h-7 gap-2 px-3 text-sm" glassVariant="liquid">
                   <span className={cn("size-2 rounded-full", status.live ? "animate-pulse bg-red-500" : "bg-muted-foreground")} />
@@ -155,46 +156,58 @@ export function App() {
                   </GlassBadge>
                 )}
               </div>
-              <div className="flex min-w-0 items-center gap-2 font-medium text-base">
-                <Logo className="size-5" name="meet" />
-                <span className="min-w-0 shrink truncate">{meet?.title ?? "Google Meet"}</span>
-                {(() => {
-                  const shown = focus ?? (settings.files.length === 1 ? settings.files[0]! : null);
-                  const name = (id: string, fallback: string) => state.files[id]?.title ?? fallback;
-                  return (
-                    <span className="inline-flex min-w-0 shrink items-center gap-1.5 font-normal text-muted-foreground text-sm">
-                      <span aria-hidden="true">·</span>
-                      {shown ? <Logo className="size-4" name={FILE_LOGO[shown.kind]} /> : <FileTextIcon className="size-4" />}
-                      <span className="truncate">
-                        {settings.files.length === 0
-                          ? "No file connected"
-                          : shown
-                            ? `${name(shown.id, shown.title)}${settings.files.length > 1 ? ` · ${settings.files.length} files` : ""}`
-                            : `${settings.files.length} files connected`}
-                      </span>
-                    </span>
-                  );
-                })()}
+              <div className="flex items-center gap-1.5">
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <GlassIcon
+                        aria-label={meet?.paused ? "Resume listening" : "Pause listening"}
+                        disabled={!meetTabId || meet?.status !== "listening"}
+                        onClick={() => void setPaused(!meet?.paused)}
+                        size="md"
+                      />
+                    }
+                  >
+                    {meet?.paused ? <PlayIcon /> : <PauseIcon />}
+                  </TooltipTrigger>
+                  <TooltipContent>{meet?.paused ? "Resume listening" : "Pause listening"}</TooltipContent>
+                </Tooltip>
               </div>
-              {detail && <p className="text-muted-foreground text-sm">{detail}</p>}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-2 font-medium text-base">
+              <Logo className="size-5" name="meet" />
+              <span className="min-w-0 shrink truncate">{meet?.title ?? "Google Meet"}</span>
+              {/* Nothing to connect: a hover note on how Scribe finds the call and the files. */}
               <Tooltip>
                 <TooltipTrigger
-                  render={
-                    <GlassIcon
-                      aria-label={meet?.paused ? "Resume listening" : "Pause listening"}
-                      disabled={!meetTabId || meet?.status !== "listening"}
-                      onClick={() => void setPaused(!meet?.paused)}
-                      size="md"
-                    />
-                  }
+                  render={<button aria-label="How Scribe finds your call and files" className="shrink-0 text-muted-foreground transition-colors hover:text-foreground" type="button" />}
                 >
-                  {meet?.paused ? <PlayIcon /> : <PauseIcon />}
+                  <CircleQuestionMarkIcon className="size-4" />
                 </TooltipTrigger>
-                <TooltipContent>{meet?.paused ? "Resume listening" : "Pause listening"}</TooltipContent>
+                <TooltipContent className="max-w-64 flex-col items-start gap-1 text-left font-normal" side="bottom">
+                  <span>Nothing to connect. Open or join a Google Meet call in this window and Scribe starts by itself.</span>
+                  <span>Docs, Sheets and Slides open in this window show up in Outputs. Add the ones Scribe should edit.</span>
+                </TooltipContent>
               </Tooltip>
+              {(() => {
+                const shown = focus ?? (settings.files.length === 1 ? settings.files[0]! : null);
+                const name = (id: string, fallback: string) => state.files[id]?.title ?? fallback;
+                return (
+                  <span className="inline-flex min-w-0 shrink items-center gap-1.5 font-normal text-muted-foreground text-sm">
+                    <span aria-hidden="true">·</span>
+                    {shown ? <Logo className="size-4" name={FILE_LOGO[shown.kind]} /> : <FileTextIcon className="size-4" />}
+                    <span className="truncate">
+                      {settings.files.length === 0
+                        ? "No file connected"
+                        : shown
+                          ? `${name(shown.id, shown.title)}${settings.files.length > 1 ? ` · ${settings.files.length} files` : ""}`
+                          : `${settings.files.length} files connected`}
+                    </span>
+                  </span>
+                );
+              })()}
             </div>
+            {detail && <p className="text-muted-foreground text-sm">{detail}</p>}
           </header>
 
           <div className="flex justify-center px-3 pt-3 pb-2">

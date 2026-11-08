@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
+import { Children, Fragment, isValidElement, type ComponentProps, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { glassVariantStyles } from "@/components/glasscn/lib/glass-variants";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/glasscn/ui/avatar";
-import { ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/glasscn/ui/item";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/glasscn/ui/item";
 import { GlassCard } from "@/components/glasscn/ui/glasscn/glass-card";
 import { GlassItem } from "@/components/glasscn/ui/glasscn/glass-item";
 import { GlassSeparator } from "@/components/glasscn/ui/glasscn/glass-separator";
@@ -74,28 +74,50 @@ export interface PickItem {
   action: ReactNode;
 }
 
-/** Things to add (open tabs, Overleaf projects, notes): one glass card like the Files list, a row each. */
-export function PickList({ items, label }: { items: PickItem[]; label: string }) {
+/**
+ * Rows on one glass card: shadcn/ui's Item group (ItemGroup with Items between separators) on a glasscn
+ * GlassCard. The card is the only surface. Rows are shadcn's default Item, which is transparent, so no band
+ * of the card shows above, below or around a row. The Files list, People and every pick list use this.
+ */
+export function ListCard({ label, children }: { label?: string; children: ReactNode }) {
+  const rows = Children.toArray(children);
   return (
-    <GlassCard aria-label={label} className="gap-0 py-1" glassVariant="subtle">
+    <GlassCard aria-label={label} className="gap-0 py-0" glassVariant="subtle">
       <ItemGroup className="gap-0">
-        {items.map((it, i) => (
-          <div key={it.key}>
-            {i > 0 && <GlassSeparator className="mx-3" glassVariant="subtle" />}
-            <GlassItem className="gap-3.5 rounded-none border-0 px-4 py-3 shadow-none" glassVariant="clear">
-              <ItemMedia className="[&_svg]:!size-8">{it.logo}</ItemMedia>
-              <ItemContent className="min-w-0">
-                <ItemTitle className="line-clamp-2 [overflow-wrap:anywhere]" title={it.title}>
-                  {it.title}
-                </ItemTitle>
-                <ItemDescription className="truncate">{it.description}</ItemDescription>
-              </ItemContent>
-              <ItemActions>{it.action}</ItemActions>
-            </GlassItem>
-          </div>
+        {rows.map((row, i) => (
+          <Fragment key={isValidElement(row) && row.key != null ? row.key : i}>
+            {/* w-auto: the separator's own w-full plus the margins would run past the card's edge. */}
+            {i > 0 && <GlassSeparator className="mx-4 data-horizontal:w-auto" glassVariant="subtle" />}
+            {row}
+          </Fragment>
         ))}
       </ItemGroup>
     </GlassCard>
+  );
+}
+
+/** One row of a ListCard. */
+export function ListRow({ className, ...props }: ComponentProps<typeof Item>) {
+  return <Item className={cn("rounded-none text-foreground", className)} role="listitem" {...props} />;
+}
+
+/** Things to add (open tabs): rows on a ListCard, like the Files list. */
+export function PickList({ items, label }: { items: PickItem[]; label: string }) {
+  return (
+    <ListCard label={label}>
+      {items.map((it) => (
+        <ListRow className="gap-3.5 px-4 py-3" key={it.key}>
+          <ItemMedia className="[&_svg]:!size-8">{it.logo}</ItemMedia>
+          <ItemContent className="min-w-0">
+            <ItemTitle className="line-clamp-2 [overflow-wrap:anywhere]" title={it.title}>
+              {it.title}
+            </ItemTitle>
+            <ItemDescription className="truncate">{it.description}</ItemDescription>
+          </ItemContent>
+          <ItemActions>{it.action}</ItemActions>
+        </ListRow>
+      ))}
+    </ListCard>
   );
 }
 
