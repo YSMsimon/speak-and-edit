@@ -19,6 +19,7 @@ import { FULL } from "@/lib/edition";
 import type { CaptureReply, MeetState, MissedLine, ToMeet, ToPanel } from "@/lib/messages";
 import { injectMeetScript } from "@/lib/meet-script";
 import { interactionLog } from "./log";
+import { DEMO } from "./demo";
 import { DEFAULT_SETTINGS, loadSettings, onSettingsChanged, saveSettings, type ProviderId, type Settings } from "@/lib/settings";
 
 export function useSettings() {
@@ -527,6 +528,8 @@ export function useProviderHealth(settings: Settings): string | null {
   const [problem, setProblem] = useState<string | null>(null);
   const { provider, models, ollamaUrl, chatgptAccount } = settings;
   useEffect(() => {
+    // The demo's made-up ChatGPT account has no real sign-in to check.
+    if (DEMO) return;
     let alive = true;
     const check = () =>
       checkProvider(provider, { ...settings, provider, models, ollamaUrl, chatgptAccount }).then(

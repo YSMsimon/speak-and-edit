@@ -38,6 +38,7 @@ import { deleteAllMeetings, listMeetings } from "@/lib/sessions";
 import { interactionLog } from "./log";
 
 import { FULL } from "@/lib/edition";
+import { DEMO } from "./demo";
 import { ObsidianSection } from "./ObsidianSection";
 import { OverleafSection } from "./OverleafSection";
 import { ProblemCard } from "./problem";
@@ -91,9 +92,10 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
   const [problem, setProblem] = useState<{ error: unknown; retry?: () => void } | null>(null);
   const googleReady = hasGoogleClient();
   // Whether Google gives Scribe a token without asking: signed in, as far as Scribe can tell.
-  const [googleIn, setGoogleIn] = useState<boolean | null>(null);
+  // The demo shows a signed-in account without asking Google.
+  const [googleIn, setGoogleIn] = useState<boolean | null>(DEMO ? true : null);
   useEffect(() => {
-    if (googleReady) void getGoogleToken(false).then(() => setGoogleIn(true), () => setGoogleIn(false));
+    if (googleReady && !DEMO) void getGoogleToken(false).then(() => setGoogleIn(true), () => setGoogleIn(false));
   }, [googleReady]);
   const openTabs = useOpenGoogleFiles().filter((t) => !settings.files.some((f) => f.id === t.id));
   // Record all can write to a Doc or an Obsidian note.
