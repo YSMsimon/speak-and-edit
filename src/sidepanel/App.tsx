@@ -138,7 +138,8 @@ export function App() {
           <img alt="" className="size-full object-cover" src={background} />
         </div>
         <div className="h-svh w-full p-2">
-        <GlassCard className="glass-scope h-full w-full gap-0 overflow-hidden rounded-[24px] py-0 text-foreground dark:bg-black/60" glassVariant="frosted">
+        {/* select-none: labels, buttons and cards aren't selectable text. The meeting's lines and Scribe's answers are (EntryView), and text boxes work as usual. */}
+        <GlassCard className="glass-scope h-full w-full select-none gap-0 overflow-hidden rounded-[24px] py-0 text-foreground dark:bg-black/60" glassVariant="frosted">
           <header className="flex flex-col gap-1.5 px-4 pt-4">
             {/* The pause button sits on the first row only, so the Meet line below gets the full width. */}
             <div className="flex items-center justify-between gap-2">

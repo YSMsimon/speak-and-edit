@@ -153,7 +153,8 @@ function ActionView({ entry, engine }: { entry: Entry; engine: Engine }) {
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <span className="font-medium text-foreground">Scribe</span>
           </div>
-          <MessageContent className={cn("rounded-xl px-3 py-2", subtle)}>
+          {/* Text you can select: what was said and Scribe's answers. The rest of the panel isn't (App.tsx). */}
+          <MessageContent className={cn("select-text rounded-xl px-3 py-2", subtle)}>
             <p>{a.answer}</p>
           </MessageContent>
         </Message>
@@ -286,7 +287,7 @@ export function EntryView({ entry, engine, me, avatar }: { entry: Entry; engine:
           <time className="tabular-nums">{timeOf(entry.at)}</time>
           {entry.typed && <span>typed</span>}
         </div>
-        <MessageContent className="text-base">
+        <MessageContent className="select-text text-base">
           <p className={cn(wake && "font-medium")}>{entry.text}</p>
         </MessageContent>
       </Message>

@@ -249,17 +249,20 @@ export function LiveTab(props: {
       <Conversation className={cn("min-h-0 flex-1 rounded-2xl", subtle)}>
         <ConversationContent className="gap-5 p-3">
           {state.entries.length === 0 && !state.partial ? (
-            <ConversationEmptyState
-              description={
-                state.meet?.status === "listening"
-                  ? settings.listenMode === "commands"
-                    ? `Listening. Say “${settings.wakeWord}, …”`
-                    : "Listening"
-                  : "Join a Google Meet call to start"
-              }
-              icon={<Logo className="size-8" name="meet" />}
-              title="No lines yet"
-            />
+            // AI Elements' empty state, at the panel's own sizes instead of its small defaults.
+            <ConversationEmptyState className="gap-4">
+              <Logo className="size-14" name="meet" />
+              <div className="space-y-1.5">
+                <h3 className="font-semibold text-xl">No lines yet</h3>
+                <p className="text-base text-muted-foreground">
+                  {state.meet?.status === "listening"
+                    ? settings.listenMode === "commands"
+                      ? `Listening. Say “${settings.wakeWord}, …”`
+                      : "Listening"
+                    : "Join a Google Meet call to start"}
+                </p>
+              </div>
+            </ConversationEmptyState>
           ) : (
             state.entries.map((e, i) => (
               <Fragment key={e.id}>
