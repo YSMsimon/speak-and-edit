@@ -5,7 +5,7 @@ One step at a time. A step is finished only when every box in its **gate** is ti
 ## The gate every step has to pass
 
 1. **Unit tests:** all pass, and the count never goes down. New code comes with its own tests.
-2. **Live AI checks** (`SCRIBE_LIVE=1`, Ollama `gpt-oss:120b-cloud`):
+2. **Live AI checks** (`SCRIBE_LIVE=1` with `OPENAI_API_KEY`, gpt-5-mini; Ollama before 2026-11-07):
    - each new check passes in 3 runs out of 3;
    - the old checks keep their usual rate, about 1 miss in 60.
 3. **Smoke test** (`SCRIBE_SMOKE=1`, real Google and service APIs):
@@ -33,7 +33,7 @@ Everything here needs your accounts or a credential or publishing decision. Do t
 | ~~1~~ | ~~Reload Scribe once~~: done 2026-11-01. Scribe now reloads and runs smoke tests by itself | — | — |
 | 2 | Real call with `TEST_SCRIPT.md` (step 0 list) | Step 0 | 30 min |
 | 3 | (Before release) Google Cloud: turn on the Picker API, create a picker key, create an OAuth web client; approve publishing the picker page, preferably on a separate page for Scribe rather than the personal site | Step 1 | 10 min |
-| 4 | An OpenRouter account (free), or one API key you're happy to test with, typed by you into Scribe | Step 2 live and smoke checks | 5 min |
+| ~~4~~ | ~~An OpenRouter account (free), or one API key you're happy to test with~~: not needed, step 2 was removed 2026-11-07 | — | — |
 | 5 | Notion: create a public integration. Decide where its small sign-in server lives (free Cloudflare Worker or Vercel function): Notion has no secret-free sign-in | Step 3 | 15 min |
 | 6 | GitHub: register an OAuth app with **device flow** on (no secret needed); give Claude its client ID. Linear: create an OAuth app | Step 4 | 5 min |
 | 7 | Figma: create an OAuth app (private is fine for testing; public needs Figma's review) | Step 7 | 10 min |
@@ -101,7 +101,9 @@ Today Scribe can open every Doc, Sheet and Slides file you have. With `drive.fil
 - [ ] Smoke test passes on picked files.
 - [ ] Sections 1–3 of the test script still pass.
 
-## Step 2. Advanced: your own API key (v0.6). Built 2026-11-01; checks waiting on #4 above
+## Step 2. Advanced: your own API key (v0.6). Built 2026-11-01; checks waiting on #4 above: removed 2026-11-07
+
+**Removed 2026-11-07** with the rest of Obsidian, Overleaf, Ollama and API keys, so this repo matches the Chrome Web Store version (Simon's call). The code is at commit `87744b0`. What follows is history.
 
 Collapsed at the bottom of AI model, closed by default:
 - **OpenRouter Connect** (one-click sign-in, free models with a daily limit): for people without ChatGPT Plus.
@@ -142,7 +144,9 @@ Action items become tasks (title, owner, due date), from "Scribe, make that a ta
 - [ ] Smoke test: create, update and comment on a task in a test project for each service.
 - [ ] Real call: three action items turn into three tasks with the right owners.
 
-## Step 5. Obsidian (v0.7.2). Built 2026-11-01, ahead of steps 3–4, which wait on Simon
+## Step 5. Obsidian (v0.7.2). Built 2026-11-01, ahead of steps 3–4, which wait on Simon: removed 2026-11-07
+
+**Removed 2026-11-07** with the rest of Obsidian, Overleaf, Ollama and API keys, so this repo matches the Chrome Web Store version (Simon's call). The code is at commit `87744b0`. What follows is history.
 
 Meeting notes go into a folder of your vault, as Markdown. Pick the folder once; nothing to sign in. Scribe asks again if Chrome forgets the folder.
 
@@ -161,7 +165,9 @@ Meeting notes go into a folder of your vault, as Markdown. Pick the folder once;
 - [ ] Notes land in the picked folder, with the frontmatter and links Obsidian expects.
 - [ ] The folder survives a browser restart, or Scribe asks again clearly.
 
-## Step 6. Overleaf (v0.8). Built 2026-11-01
+## Step 6. Overleaf (v0.8). Built 2026-11-01: removed 2026-11-07
+
+**Removed 2026-11-07** with the rest of Obsidian, Overleaf, Ollama and API keys, so this repo matches the Chrome Web Store version (Simon's call). The code is at commit `87744b0`. What follows is history.
 
 **Spike (done 2026-11-01, "Scribe test" project, free plan):**
 - [x] Typing into the editor works. The page keeps its CodeMirror 6 editor in `window.overleaf.unstable.store` (`editor.view`, `editor.open_doc_name`); Scribe reaches it with `chrome.scripting.executeScript` in the page's own world. Edits save and sync like typing, and survive a reload.
@@ -212,12 +218,12 @@ Built and tested on 2026-11-01 (a local MCP server with four read-only tools, an
 
 ## Before release
 
-**The public edition is Google-only (Simon, 2026-11-07).** The store and GitHub Releases get Google Meet → Google Docs, Sheets and Slides, with Sign in with ChatGPT or Chrome's built-in model. Obsidian, Overleaf, Ollama and API keys are switched off in that build, not deleted: they stay in the full edition (`SCRIBE_FULL=1`). See README › Editions.
+**This repo is the Chrome Web Store version (Simon, 2026-11-07).** Google Meet → Google Docs, Sheets and Slides, with Sign in with ChatGPT or Chrome's built-in model. Obsidian, Overleaf, Ollama, OpenRouter and API keys were removed from the code; the last commit with them is `87744b0`.
 
 1. **Step 1:** narrower Google permissions (`drive.file` and the hosted picker).
 2. **Chrome Web Store listing:** privacy policy, screenshots, and a demo video.
 3. **Ask OpenAI** whether Sign in with ChatGPT is fine inside an extension: the sign-in is caught from the tab, and tokens are kept in extension storage.
-4. **A free sign-in for the public edition (open):** OpenRouter Connect is built (one-click, no key) but only in the full edition. Before it can join the public one: a live check with a real OpenRouter account, a free model as its default instead of `openrouter/auto`, and a model picker instead of the text field.
+4. **A free option besides the built-in model (open):** OpenRouter Connect (one-click sign-in, free models with a daily limit) was built, then removed with the API keys. To bring it back, take it from `87744b0`, give it a free default model and a model picker, and check it live first.
 
 ## Later, unscheduled
 

@@ -11,7 +11,7 @@
 | Library | Used for | License |
 |---|---|---|
 | WXT | Extension build tooling | MIT |
-| Vercel AI SDK (`ai`, `@ai-sdk/openai-compatible`, `@ai-sdk/openai`) | Calling every AI provider through one interface (Ollama, and ChatGPT plans through the Responses API) | Apache-2.0 |
+| Vercel AI SDK (`ai`, `@ai-sdk/openai`) | Calling the AI through one interface (ChatGPT plans through the Responses API) | Apache-2.0 |
 | `@browser-ai/core` | Chrome and Edge built-in models through the AI SDK | Apache-2.0 |
 | zod | Schemas for the model's structured answers | MIT |
 | cn (shadcn-ui/cn) | Class-name merging used by the shadcn components | MIT |
@@ -30,9 +30,8 @@ Every element in the panel starts as a stock component from these libraries, res
 | Radix UI | Primitives under shadcn/ui | MIT | https://www.radix-ui.com |
 | Paper Shaders (`@paper-design/shaders-react`) | The liquid-metal effect in Liquid Switch | Apache-2.0 | https://shaders.paper.design |
 | Lucide | Every icon that isn't a brand logo | ISC | https://lucide.dev |
-| Sonner, through shadcn/ui's Sonner component (registry `new-york-v4/sonner`) | Toasts for confirmations ("Ollama works", "Signed out of ChatGPT") | MIT | https://sonner.emilkowal.ski, in `src/components/ui/sonner.tsx` |
-| selfh.st/icons, via `@iconify-json/selfhst` | Brand logos: Google Docs, Sheets, Slides, Meet, Drive, Google, Chrome, Gemini, Ollama, OpenRouter, OpenAI (for ChatGPT), Claude, Notion, Obsidian, Overleaf, GitHub, Microsoft Word, Zoom, Microsoft Teams. Used unchanged; one-colour marks use the set's own light and dark versions | CC BY 4.0, by selfh.st | https://selfh.st/icons, in `src/sidepanel/logos.tsx` |
-| theSVG, via `@iconify-json/thesvg-color` | The Anthropic, Groq and Hypothesis logos, which the set above lacks, and the model makers in the Ollama model menus (DeepSeek, Gemma, Kimi, MiniMax, Mistral, NVIDIA Nemotron, Qwen, Xiaomi, Zhipu) | MIT | https://thesvg.org |
+| Sonner, through shadcn/ui's Sonner component (registry `new-york-v4/sonner`) | Toasts for confirmations ("Switched to the built-in model", "Signed out of ChatGPT") | MIT | https://sonner.emilkowal.ski, in `src/components/ui/sonner.tsx` |
+| selfh.st/icons, via `@iconify-json/selfhst` | Brand logos: Google Docs, Sheets, Slides, Meet, Drive, Google, Chrome, OpenAI (for ChatGPT). Used unchanged; one-colour marks use the set's own light and dark versions | CC BY 4.0, by selfh.st | https://selfh.st/icons, in `src/sidepanel/logos.tsx` |
 | unplugin-icons | Compiles only the logos used into the build, so nothing loads from the network | MIT | https://github.com/unplugin/unplugin-icons |
 | double-metaphone (words) | Hearing that a first word sounds like the wake word ("Subscribe" for "Scribe"), in `src/lib/wake.ts` | MIT | https://github.com/words/double-metaphone |
 | Geist (via Fontsource) | Typeface | OFL-1.1 | https://vercel.com/font |

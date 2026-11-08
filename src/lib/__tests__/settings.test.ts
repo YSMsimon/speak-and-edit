@@ -23,25 +23,39 @@ describe('mergeSettings', () => {
 });
 
 describe('mergeSettings: providers', () => {
-  it('keeps keys for known services (v0.6), drops unknown ones, and moves the old Auto to Ollama', () => {
+  it('drops Ollama, API keys and per-provider screen models saved by older versions', () => {
     const s = mergeSettings({
       provider: 'openrouter',
-      keys: { openai: 'sk-x', mystery: 'zzz' },
-      models: { ollama: 'gemma4:31b-cloud', openai: 'gpt-5-mini', mystery: 'm' },
-      visionModels: { anthropic: 'claude', mystery: 'm' },
+      keys: { openai: 'sk-x' },
+      ollamaUrl: 'http://localhost:11434',
+      models: { ollama: 'gemma4:31b-cloud', openai: 'gpt-5-mini', chatgpt: 'gpt-5.4-mini' },
+      visionModels: { ollama: 'gemma4:31b-cloud' },
     });
-    expect(s.provider).toBe('openrouter');
-    expect(s.keys).toEqual({ openai: 'sk-x' });
-    expect(mergeSettings({ provider: 'auto' }).provider).toBe('ollama');
-    expect(mergeSettings({ provider: 'mystery' }).provider).toBe('ollama');
-    expect(s.models).toMatchObject({ chrome: 'text', ollama: 'gemma4:31b-cloud', chatgpt: '', openai: 'gpt-5-mini', anthropic: 'claude-haiku-5-5' });
-    expect(s.models).not.toHaveProperty('mystery');
-    expect(s.visionModels).toEqual({ ollama: 'gemma4:31b-cloud', anthropic: 'claude' });
+    expect(s.provider).toBe('chrome');
+    expect(s).not.toHaveProperty('keys');
+    expect(s).not.toHaveProperty('ollamaUrl');
+    expect(s).not.toHaveProperty('visionModels');
+    expect(s.models).toEqual({ chrome: 'text', chatgpt: 'gpt-5.4-mini' });
     expect(s.chatgptAccount).toBeNull();
+    expect(mergeSettings({ provider: 'auto' }).provider).toBe('chrome');
+    expect(mergeSettings({ provider: 'ollama' }).provider).toBe('chrome');
   });
 
-  it('keeps ChatGPT, Ollama and the built-in model', () => {
+  it('keeps ChatGPT and the built-in model', () => {
     expect(mergeSettings({ provider: 'chatgpt', chatgptAccount: 'simon@example.com' })).toMatchObject({ provider: 'chatgpt', chatgptAccount: 'simon@example.com' });
-    expect(mergeSettings({ provider: 'ollama' }).provider).toBe('ollama');
+    expect(mergeSettings({ provider: 'chrome' }).provider).toBe('chrome');
+  });
+
+  it('drops Obsidian notes and Overleaf projects saved by older versions', () => {
+    const s = mergeSettings({
+      files: [
+        { id: 'doc1', kind: 'doc', title: 'Roadmap' },
+        { id: 'note:Meetings/Today.md', kind: 'note', title: 'Today' },
+        { id: 'overleaf:abc', kind: 'tex', title: 'Paper' },
+      ],
+      focusFileId: 'overleaf:abc',
+    });
+    expect(s.files.map((f) => f.kind)).toEqual(['doc']);
+    expect(s.focusFileId).toBeNull();
   });
 });

@@ -28,13 +28,6 @@ Kept in Chrome's storage on this computer, never synced:
 
 Outputs › Saved meetings › Delete removes the meetings and the log. Removing the extension removes everything it stored.
 
-## The full edition
-
-This policy covers the edition in the Chrome Web Store and on GitHub Releases. The full edition, which you build yourself from the source code, can also:
-- read and edit Obsidian notes in the vault folder you choose, and Overleaf projects open in your browser, through Overleaf's own editor in your tab;
-- send the AI request to Ollama (on your computer, or Ollama's cloud models), or to a provider you add a key for: OpenAI, Anthropic, Google Gemini, Groq or OpenRouter. Their own privacy policies apply to what they receive;
-- read Ollama's public model list (ollama.com) to show which cloud models exist. Nothing of yours is sent.
-
 ## Google user data
 
 Speak and Edit's use and transfer of information received from Google APIs adheres to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements. Google data is used only to read and edit the files you connect, save your captures to your Drive, and show your name; it isn't transferred to anyone except the AI provider you choose, as described above, and never for advertising. Speak and Edit doesn't use your Google data to develop or train AI models; what an AI provider does with the requests it receives is set by that provider's terms. Sign out in Outputs withdraws Speak and Edit's access to your Google account.

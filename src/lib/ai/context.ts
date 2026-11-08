@@ -14,8 +14,6 @@ import type { ProviderId, Settings } from "../settings";
 export const RECENT_LINES = 6;
 const SHARE = 0.1;
 const CAP = 16_000;
-/** When nothing better is known. */
-const FALLBACK_WINDOW = 8_192;
 
 const CJK = /[぀-ヿ㐀-鿿가-힯豈-﫿]/g;
 
@@ -30,48 +28,14 @@ export function budgetFor(window: number): number {
   return Math.min(Math.floor(window * SHARE), CAP);
 }
 
-/**
- * The model's context window, from what each provider is known to offer. Ollama's own models keep
- * Ollama's default of 4k unless the user changed it; its cloud models get their full window.
- * OpenRouter lists each model's window, which is asked for once.
- */
-export function knownWindow(id: ProviderId, model: string): number {
-  const m = model.toLowerCase();
-  switch (id) {
-    case "chrome":
-      // Gemini Nano: a few thousand tokens per session.
-      return 4_096;
-    case "ollama":
-      return /[-:]cloud$/.test(m) ? 131_072 : 4_096;
-    case "groq":
-      return 131_072;
-    case "anthropic":
-      return 200_000;
-    case "gemini":
-      return 1_000_000;
-    case "openai":
-    case "chatgpt":
-      return 128_000;
-    default:
-      return FALLBACK_WINDOW;
-  }
+/** The model's context window: Chrome's built-in model is small, ChatGPT's models are large. */
+export function knownWindow(id: ProviderId, _model: string): number {
+  // Gemini Nano: a few thousand tokens per session.
+  return id === "chrome" ? 4_096 : 128_000;
 }
 
-const openRouterWindows = new Map<string, number>();
-
-export async function contextWindow(id: ProviderId, s: Settings, fetcher: typeof fetch = fetch): Promise<number> {
-  const model = s.models[id] ?? "";
-  if (id !== "openrouter") return knownWindow(id, model);
-  if (!openRouterWindows.size) {
-    try {
-      const r = await fetcher("https://openrouter.ai/api/v1/models");
-      const list = ((await r.json()) as { data?: { id: string; context_length?: number }[] }).data ?? [];
-      for (const x of list) if (x.context_length) openRouterWindows.set(x.id, x.context_length);
-    } catch {
-      // Not allowed yet, or offline: use the fallback.
-    }
-  }
-  return openRouterWindows.get(model) ?? FALLBACK_WINDOW;
+export async function contextWindow(id: ProviderId, s: Settings): Promise<number> {
+  return knownWindow(id, s.models[id] ?? "");
 }
 
 export interface Line {

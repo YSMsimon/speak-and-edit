@@ -37,10 +37,7 @@ import { toast } from "sonner";
 import { deleteAllMeetings, listMeetings } from "@/lib/sessions";
 import { interactionLog } from "./log";
 
-import { FULL } from "@/lib/edition";
 import { DEMO } from "./demo";
-import { ObsidianSection } from "./ObsidianSection";
-import { OverleafSection } from "./OverleafSection";
 import { ProblemCard } from "./problem";
 import { ChoiceRow, Hint, PickList, SectionLabel } from "./shared";
 
@@ -98,8 +95,8 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
     if (googleReady && !DEMO) void getGoogleToken(false).then(() => setGoogleIn(true), () => setGoogleIn(false));
   }, [googleReady]);
   const openTabs = useOpenGoogleFiles().filter((t) => !settings.files.some((f) => f.id === t.id));
-  // Record all can write to a Doc or an Obsidian note.
-  const docs = settings.files.filter((f) => f.kind === "doc" || f.kind === "note");
+  // Record all writes to a Doc.
+  const docs = settings.files.filter((f) => f.kind === "doc");
   const transcriptId = transcriptFile(settings)?.id;
 
   const run = async (label: string, fn: () => Promise<string | void>, retry?: () => void) => {
@@ -131,19 +128,6 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
       }
       return `Connected “${info?.title ?? file.title}”`;
     }, () => void addFile(file));
-
-  /** Obsidian notes and Overleaf projects: no Google sign-in; read once to check it opens. */
-  const addLocal = (file: FileRef): Promise<void> =>
-    run(`add-${file.id}`, async () => {
-      update({ files: [...settings.files.filter((f) => f.id !== file.id), file] });
-      await engine.refreshFiles();
-      const info = engine.getState().files[file.id];
-      if (info?.error) {
-        update({ files: settings.files.filter((f) => f.id !== file.id) });
-        throw new Error(`Couldn’t open “${file.title}”: ${info.error}`);
-      }
-      return `Connected “${file.title}”`;
-    });
 
   const removeFile = (id: string) => {
     update({
@@ -313,9 +297,6 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
 
         {problem && <ProblemCard onDismiss={() => setProblem(null)} onRetry={problem.retry} problem={problem.error} />}
 
-        {/* Full edition only (lib/edition.ts). */}
-        {FULL && <ObsidianSection connected={settings.files} meetingTitle={state.meet?.title ?? null} onAdd={addLocal} />}
-        {FULL && <OverleafSection connected={settings.files} onAdd={addLocal} />}
 
         {googleReady && (
           <GlassItem className="gap-3.5 px-4 py-3.5" glassVariant="subtle">

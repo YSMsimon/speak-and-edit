@@ -1,34 +1,15 @@
 // Settings live in chrome.storage.local: on this computer only, never synced.
 
-import { FULL } from "./edition";
-import type { FileKind, FileRef } from "./files";
+import { FILE_KINDS, type FileRef } from "./files";
 import type { LandAs } from "./targets/types";
 
 /**
- * Up front, with no API keys: the browser's built-in model, Ollama, or the user's own ChatGPT plan.
- * Under "Use your own API key" (v0.6): OpenRouter (one-click Connect) and keys for OpenAI, Anthropic, Gemini, Groq.
- * The public edition offers only ChatGPT and the built-in model (see lib/edition.ts).
+ * The AI: the user's own ChatGPT plan (Sign in with ChatGPT), or the model built into Chrome. No API keys.
+ * Ollama, OpenRouter and API keys were removed on 2026-11-07, so this version matches the Chrome Web Store
+ * one; the last version with them is commit 87744b0.
  */
-export type ProviderId = "chrome" | "ollama" | "chatgpt" | "openrouter" | "anthropic" | "openai" | "gemini" | "groq";
-
-/** The models each edition offers: basic ones up front, and the API-key ones (full edition only). */
-export function providersFor(full: boolean): { basic: ProviderId[]; advanced: ProviderId[] } {
-  return full
-    ? { basic: ["chrome", "ollama", "chatgpt"], advanced: ["openrouter", "anthropic", "openai", "gemini", "groq"] }
-    : { basic: ["chrome", "chatgpt"], advanced: [] };
-}
-/** The file types each edition can edit. Public: Google Docs, Sheets and Slides. */
-export function fileKindsFor(full: boolean): FileKind[] {
-  return full ? ["doc", "sheet", "slides", "note", "tex"] : ["doc", "sheet", "slides"];
-}
-const allProviders = (full: boolean) => {
-  const p = providersFor(full);
-  return [...p.basic, ...p.advanced];
-};
-export const BASIC_PROVIDERS: ProviderId[] = providersFor(FULL).basic;
-export const ADVANCED_PROVIDERS: ProviderId[] = providersFor(FULL).advanced;
-export const PROVIDER_IDS: ProviderId[] = allProviders(FULL);
-export const FILE_KINDS: FileKind[] = fileKindsFor(FULL);
+export type ProviderId = "chrome" | "chatgpt";
+export const PROVIDER_IDS: ProviderId[] = ["chrome", "chatgpt"];
 /** There is no "Auto" (removed in v0.5): the user picks one. */
 export type ProviderChoice = ProviderId;
 export type Role = "edit" | "comment" | "ignore";
@@ -62,32 +43,15 @@ export interface Settings {
   models: Record<ProviderId, string>;
   /** The signed-in ChatGPT account (email), or null. The tokens themselves are kept apart, in lib/ai/chatgpt.ts. */
   chatgptAccount: string | null;
-  /** "Use your own API key" providers. Stored only in this browser and sent only to that provider. */
-  keys: Partial<Record<ProviderId, string>>;
-  ollamaUrl: string;
   roles: Record<string, Role>;
   defaultRole: Role;
   /** Shared screen: where screenshots and recordings go, and whether each new slide is saved by itself. */
   screen: { autoCapture: boolean; targetFileId: string | null };
-  /** Models that can see images, per provider. Empty means the provider's normal model. */
-  visionModels: Partial<Record<ProviderId, string>>;
   /** The "Scribe captures" folder in the user's Drive, once created. */
   driveFolderId: string | null;
 }
 
-/** The defaults for an edition. DEFAULT_SETTINGS is this build's. */
-export function defaultsFor(full: boolean): Settings {
-  return {
-    ...BASE_DEFAULTS,
-    // Full: the free option that scored best in the smoke test (39/40). Public: Chrome's built-in model,
-    // which needs no sign-in. Either way, ChatGPT takes over once signed in.
-    provider: full ? "ollama" : "chrome",
-    // gpt-oss can't see images; Gemma 4 can, and is free on Ollama's cloud.
-    visionModels: full ? { ollama: "gemma4:31b-cloud" } : {},
-  };
-}
-
-const BASE_DEFAULTS: Settings = {
+export const DEFAULT_SETTINGS: Settings = {
   wakeWord: "Scribe",
   listenMode: "commands",
   // Suggestions first, so nothing lands in a doc unreviewed until someone switches to Auto.
@@ -97,29 +61,19 @@ const BASE_DEFAULTS: Settings = {
   transcriptFileId: null,
   commentsOnly: false,
   outputs: { docComments: true },
+  // Needs no sign-in. ChatGPT takes over once signed in.
   provider: "chrome",
   models: {
     chrome: "text",
-    ollama: "gpt-oss:120b-cloud",
     // Filled with the plan's first model at sign-in.
     chatgpt: "",
-    openrouter: "openrouter/auto",
-    anthropic: "claude-haiku-5-5",
-    openai: "gpt-5-mini",
-    gemini: "gemini-2.5-flash-lite",
-    groq: "openai/gpt-oss-20b",
   },
   chatgptAccount: null,
-  keys: {},
-  ollamaUrl: "http://localhost:11434",
   roles: {},
   defaultRole: "edit",
   screen: { autoCapture: false, targetFileId: null },
-  visionModels: {},
   driveFolderId: null,
 };
-
-export const DEFAULT_SETTINGS: Settings = defaultsFor(FULL);
 
 const KEY = "scribe.settings";
 
@@ -129,24 +83,25 @@ export async function loadSettings(): Promise<Settings> {
 }
 
 /**
- * Fills defaults and upgrades settings saved by v0.1 (one doc, comments-only toggle). Anything this
- * edition doesn't offer (an Obsidian note, Ollama, a key) is left out, and the model falls back to the default.
+ * Fills defaults and upgrades older saves: v0.1 (one doc, comments-only toggle), and versions with
+ * Obsidian notes, Overleaf projects, Ollama and API keys, which are dropped (the model falls back to the default).
  */
-export function mergeSettings(raw: Record<string, unknown> | undefined, full: boolean = FULL): Settings {
-  const defaults = defaultsFor(full);
-  const ids = allProviders(full) as string[];
-  const kinds = fileKindsFor(full) as string[];
-  const r = (raw ?? {}) as Partial<Settings> & { docId?: string | null; docTitle?: string | null; mode?: string; autoComment?: boolean; landAs?: LandAs; creditTemplate?: string; slackWebhook?: string; shareWithClaude?: unknown };
+export function mergeSettings(raw: Record<string, unknown> | undefined): Settings {
+  const defaults = DEFAULT_SETTINGS;
+  const ids = PROVIDER_IDS as string[];
+  const kinds = FILE_KINDS as string[];
+  const r = (raw ?? {}) as Partial<Settings> & { docId?: string | null; docTitle?: string | null; mode?: string; autoComment?: boolean; landAs?: LandAs; creditTemplate?: string; slackWebhook?: string; shareWithClaude?: unknown; keys?: unknown; ollamaUrl?: unknown; visionModels?: unknown };
   const saved: FileRef[] = Array.isArray(r.files) ? r.files : r.docId ? [{ id: r.docId, kind: "doc", title: r.docTitle ?? "Google Doc" }] : [];
   const files = saved.filter((f) => kinds.includes(f.kind));
   // v0.2 had "How changes land": suggest / direct / comment. Only "comment" survives, as commentsOnly.
   const commentsOnly = r.commentsOnly ?? (r.landAs === "comment" || r.mode === "comment");
   const listenMode: ListenMode = r.listenMode ?? (r.autoComment ? "smart" : "commands");
   // Dropped in v0.5: the editable credit line and the Slack output.
-  // Dropped: the editable credit line and the Slack output (v0.5), and "Share with Claude" (removed 2026-11-01).
-  const { docId: _d, docTitle: _t, mode: _m, autoComment: _a, landAs: _l, creditTemplate: _c, slackWebhook: _w, shareWithClaude: _sc, ...rest } = r;
+  // Dropped: the editable credit line and the Slack output (v0.5), "Share with Claude" (removed 2026-11-01),
+  // and API keys, the Ollama address and per-provider screen models (removed 2026-11-07).
+  const { docId: _d, docTitle: _t, mode: _m, autoComment: _a, landAs: _l, creditTemplate: _c, slackWebhook: _w, shareWithClaude: _sc, keys: _k, ollamaUrl: _o, visionModels: _v, ...rest } = r;
   const known = <T,>(o: Partial<Record<string, T>> | undefined) => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => ids.includes(k))) as Partial<Record<ProviderId, T>>;
-  // "auto", the removed key providers, and providers this edition doesn't offer fall back to the default.
+  // "auto", Ollama and the removed key providers fall back to the default.
   const provider: ProviderChoice = ids.includes(r.provider ?? "") ? (r.provider as ProviderChoice) : defaults.provider;
   return {
     ...defaults,
@@ -159,10 +114,8 @@ export function mergeSettings(raw: Record<string, unknown> | undefined, full: bo
     provider,
     models: { ...defaults.models, ...known(r.models) },
     chatgptAccount: r.chatgptAccount ?? null,
-    keys: known(r.keys),
     roles: { ...r.roles },
     screen: { ...defaults.screen, ...r.screen },
-    visionModels: { ...defaults.visionModels, ...known(r.visionModels) },
   };
 }
 
@@ -174,9 +127,9 @@ export function focusFile(s: Settings): FileRef | undefined {
 export function transcriptFile(s: Settings): FileRef | undefined {
   const focus = focusFile(s);
   return (
-    s.files.find((f) => f.id === s.transcriptFileId && (f.kind === "doc" || f.kind === "note")) ??
-    (focus?.kind === "doc" || focus?.kind === "note" ? focus : undefined) ??
-    s.files.find((f) => f.kind === "doc" || f.kind === "note")
+    s.files.find((f) => f.id === s.transcriptFileId && f.kind === "doc") ??
+    (focus?.kind === "doc" ? focus : undefined) ??
+    s.files.find((f) => f.kind === "doc")
   );
 }
 

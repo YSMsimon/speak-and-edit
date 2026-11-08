@@ -1,6 +1,6 @@
-// Calls a real model. Skipped unless SCRIBE_LIVE=1. Uses Ollama's free cloud model
-// through the local Ollama app (nothing is downloaded).
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+// Calls a real model. Skipped unless SCRIBE_LIVE=1 and OPENAI_API_KEY is set. Uses an OpenAI model of the
+// family ChatGPT plans run, with the same JSON schema route and reasoning level Scribe uses for ChatGPT.
+import { createOpenAI } from '@ai-sdk/openai';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { confirmRequest, decideSmart, parseCommand, readScreen } from '../ai/agent';
@@ -9,10 +9,10 @@ import { buildOutline, describeOutline } from '../docs/outline';
 import { planEdit } from '../docs/plan';
 import { makeDoc, SPEC } from './fixtures';
 
-const live = process.env.SCRIBE_LIVE === '1';
-const MODEL = process.env.SCRIBE_MODEL ?? 'gpt-oss:120b-cloud';
+const live = process.env.SCRIBE_LIVE === '1' && Boolean(process.env.OPENAI_API_KEY);
+const MODEL = process.env.SCRIBE_MODEL ?? 'gpt-5-mini';
 // The reasoning level Scribe itself uses for this model (providers.ts).
-const ai = { model: createOpenAICompatible({ name: 'ollama', baseURL: 'http://localhost:11434/v1' }).chatModel(MODEL), mode: 'prompt' as const, reasoning: lowestReasoning('ollama', MODEL) };
+const ai = { model: createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' }).responses(MODEL), mode: 'strict' as const, reasoning: lowestReasoning('chatgpt', MODEL) };
 const outline = buildOutline(makeDoc(SPEC));
 const ctx = { outline: `File “Q4 Platform Spec” (Google Doc)\n${describeOutline(outline)}\n\nFile “Tracker” (Google Sheet)\nTab “Tasks” (columns: Task | Owner | Status)\n  row 2: Fix login | Wei | open`, recent: [] };
 
@@ -71,8 +71,9 @@ describe.skipIf(!live)(`live smart mode: ${MODEL}`, () => {
 });
 
 
-const VISION = process.env.SCRIBE_VISION_MODEL ?? 'gemma4:31b-cloud';
-const eyes = { model: createOpenAICompatible({ name: 'ollama', baseURL: 'http://localhost:11434/v1' }).chatModel(VISION), mode: 'prompt' as const, reasoning: lowestReasoning('ollama', VISION) };
+// The shared screen uses the same model: ChatGPT's models see pictures themselves.
+const VISION = MODEL;
+const eyes = ai;
 
 describe.skipIf(!live)(`live screen: ${VISION}`, () => {
   it('reads a table off a shared screen into Sheet rows', async () => {
@@ -193,52 +194,6 @@ describe.skipIf(!live)(`live comment on a named line: ${MODEL}`, () => {
     expect(intent.text?.toLowerCase()).toContain('check this with wei');
     expect(intent.text?.toLowerCase()).not.toContain('comment');
     expect(intent.find?.toLowerCase()).toContain('beta');
-  }, 60_000);
-});
-
-// Overleaf (v0.8): the model sees the LaTeX source and should still write plain words; Scribe escapes them.
-describe.skipIf(!live)(`live Overleaf: ${MODEL}`, () => {
-  const PAPER = String.raw`\documentclass{article}
-\begin{document}
-\section{Introduction}
-Bees visit some flowers more than others.
-\section{Method}
-We count bees in five garden beds.
-\begin{itemize}
-  \item Tomato bed
-\end{itemize}
-\section{Results}
-The pilot reached 30\% accuracy.
-\end{document}`;
-  const texCtx = async () => {
-    const { describeTex } = await import('../latex/tex');
-    return { outline: `File “Scribe test” (Overleaf project)\nLaTeX file open: main.tex\n${describeTex(PAPER).text}`, recent: [] };
-  };
-
-  it('adds plain words under a \\section, no LaTeX escapes', async () => {
-    const { intent } = await parseCommand(ai, { speaker: 'Simon', command: 'add to results: recall was 85% on the R&D tasks' }, await texCtx());
-    console.log(JSON.stringify(intent));
-    expect(intent.action).toBe('append');
-    expect(intent.section).toBe('Results');
-    expect(intent.text).toMatch(/85%/);
-    expect(intent.text).not.toMatch(/\\/);
-  }, 60_000);
-
-  it('a change of "30%" finds text the code can match', async () => {
-    const { replaceIn } = await import('../latex/tex');
-    const { intent } = await parseCommand(ai, { speaker: 'Simon', command: 'in results, change 30% to 35%' }, await texCtx());
-    console.log(JSON.stringify(intent));
-    expect(intent.action).toBe('replace');
-    const e = replaceIn(PAPER, intent.section, intent.find!, intent.replaceWith ?? '');
-    expect(e.text).toContain('35\\% accuracy');
-  }, 60_000);
-
-  it('adds to the method list by its section', async () => {
-    const { intent } = await parseCommand(ai, { speaker: 'Simon', command: 'add the herb bed to the method list' }, await texCtx());
-    console.log(JSON.stringify(intent));
-    expect(intent.action).toBe('append');
-    expect(intent.section).toBe('Method');
-    expect(intent.text).not.toMatch(/\\item/);
   }, 60_000);
 });
 

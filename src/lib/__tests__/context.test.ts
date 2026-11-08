@@ -20,9 +20,8 @@ describe('budgetFor', () => {
 });
 
 describe('knownWindow', () => {
-  it('gives Ollama cloud models their full window and local ones the 4k default', () => {
-    expect(knownWindow('ollama', 'gpt-oss:120b-cloud')).toBe(131_072);
-    expect(knownWindow('ollama', 'llama3')).toBe(4_096);
+  it('gives ChatGPT models a large window and the built-in model 4k', () => {
+    expect(knownWindow('chatgpt', 'gpt-5.4-mini')).toBe(128_000);
     expect(knownWindow('chrome', 'text')).toBe(4_096);
   });
 });

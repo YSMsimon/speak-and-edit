@@ -30,7 +30,7 @@ Make these in Google Drive. Use the exact titles.
 
 1. On `chrome://extensions`, click the reload arrow on Scribe.
 2. Open the three files as tabs in one window, then open the Scribe side panel. In **Outputs**, click **Add** next to each file under "Open in this window". If Google asks for permissions, allow all of them.
-3. In **AI model**, pick Ollama with `gpt-oss:120b-cloud` and click **Test**. The answer should look like `append → Decisions: launch is December 8`.
+3. In **AI model**, click **Continue with ChatGPT** and sign in with a Plus or Pro account (or pick **Built into the browser**). The green dot means it's ready.
 4. Set the starting state:
    - **Live**: Commands, Auto.
    - **Outputs**: How changes land is **Edit the file**, Work on is **Any file**, and **Credit each change** is on.
@@ -178,38 +178,13 @@ Your name shows up in the People tab once you've spoken.
 | # | Do | What should happen |
 |---|---|---|
 | ☐ 7.1 | Click **Pause** in the header; the badge should say Paused. Say "Scribe, add to notes: paused test." Then resume and say it again. | While paused, nothing shows up in the panel. After you resume, it works. |
-| ☐ 7.2 | In AI model, click **Continue with ChatGPT** and sign in with a Plus or Pro account. Then switch to Chrome built-in too. For each one, click Test and redo 1.1 and 3.3. | Sign-in: a tab opens, you approve Scribe, the tab closes by itself, and "You're using your ChatGPT plan" appears. Then the same results as Ollama. Write down any provider that gets them wrong. |
+| ☐ 7.2 | Switch AI model to **Built into the browser**, then redo 1.1 and 3.3. | The same results as with ChatGPT, maybe slower. Write down anything it gets wrong. |
 | ☐ 7.3 | Join the call from your phone as a guest named "Alex", and admit them. From the phone, say "Scribe, add to notes: second person test." | The line shows the speaker as Alex, and the credit names Alex. Alex appears in People with a role you can change. |
 | ☐ 7.4 | Say "Scribe, add Postgres 16 to", wait about 3 seconds, then "Decisions." | One line, one change under Decisions. Scribe waits up to 5 seconds when a sentence ends in "to", "and", "the" or a comma. |
 | ☐ 7.5 | Say "Scribe," then stop for about 3 seconds. Then say "add to notes: pause test." | The bare "Scribe," shows nothing; the second line is bold and acted on. The next line within 8 seconds counts as the request. |
 | ☐ 7.6 | Say "Scribe, add to notes: quick test." and stop. Watch how soon the card appears. | About 1.5 seconds after the full stop shows in Meet's captions, plus the AI's time. If Meet adds no full stop, 4 seconds. |
 
 ---
-
-## 7b. Obsidian notes (about 5 minutes)
-
-In Outputs › Obsidian, click **Choose vault** and pick your vault folder, then **New note**. Disconnect the Google files, or set Work on to the note.
-
-| # | Say | What should happen |
-|---|---|---|
-| ☐ 7b.1 | "Scribe, add to decisions: we ship the beta on March 3." | In Obsidian, under **## Decisions**: "we ship the beta on March 3" (credit hidden as `%% … %%`, visible in source mode). |
-| ☐ 7b.2 | "Scribe, comment on the beta line: check this with Wei." | A `> [!comment]` callout under that line. |
-| ☐ 7b.3 | Switch to **Record all** and talk for a few lines. | They appear under **## Transcript** at the end of the note. |
-| ☐ 7b.4 | Quit and reopen Chrome, then try 7b.1 again. | Either it works, or Outputs › Obsidian shows **Allow**; one click and it works. |
-
-## 7c. Overleaf, a research meeting (about 5 minutes)
-
-Open an Overleaf project with `\section{Results}` and a list somewhere (the "Scribe test" project works). In Outputs › Overleaf, press **Add** next to it and allow Chrome's prompt. Set Work on to the project.
-
-| # | Say | What should happen |
-|---|---|---|
-| ☐ 7c.1 | "Scribe, add to results: recall was 85% on the R&D tasks." | Under Results: `recall was 85\% on the R\&D tasks`, then a `% [Scribe] Simon, …` line. The PDF recompiles without errors. |
-| ☐ 7c.2 | "Scribe, in results, change 85% to 87%." | `85\%` becomes `87\%`. |
-| ☐ 7c.3 | "Scribe, comment on the recall line: rerun with three seeds." | A real Overleaf comment on the recall line, in the review panel with your name: "Rerun with three seeds — Simon, …". The source and the PDF are unchanged. |
-| ☐ 7c.4 | "Scribe, add the herb bed to the method list." | A new `\item` for the herb bed inside the list, before `\end{itemize}`. |
-| ☐ 7c.5 | A co-author types in the project during 7c.1–7c.4. | Their typing and Scribe's edits both stay. |
-| ☐ 7c.6 | Close the Overleaf tab, then repeat 7c.1. | Scribe opens the project in a background tab and writes it. |
-| ☐ 7c.9 | With the test project's PDF showing margin line numbers, say "Scribe, comment on line 12: check this number." | A real comment on the source line that PDF line 12 comes from, and the card says which line. Without margin numbers, line 12 is the editor's line 12. |
 
 ## 8. Shared screen (about 6 minutes)
 

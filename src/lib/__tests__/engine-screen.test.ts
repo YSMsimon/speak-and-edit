@@ -45,11 +45,11 @@ function setup(over: Partial<Settings> = {}, intents: Intent[] = [], reads: Scre
   });
   const deps: EngineDeps = {
     settings: () => settings,
-    targets: { doc: docs, sheet: mediaTarget('sheet'), slides: mediaTarget('slides'), note: { describe: async () => { throw new Error('no notes here'); }, apply: async () => { throw new Error('no notes here'); } }, tex: { describe: async () => { throw new Error('no Overleaf here'); }, apply: async () => { throw new Error('no Overleaf here'); } } },
+    targets: { doc: docs, sheet: mediaTarget('sheet'), slides: mediaTarget('slides') },
     appendTranscript: async () => undefined,
     model: () => ({ model: {} as never, mode: 'prompt' }),
     visionModel: () => ({ model: { vision: true } as never, mode: 'prompt' }),
-    resolveProvider: async () => 'ollama',
+    resolveProvider: async () => 'chatgpt',
     updateSettings: (patch) => void Object.assign(settings, patch),
     control: { setListening: async () => undefined, recording: async () => 'ok', recordingState: () => 'off' },
     ai: {

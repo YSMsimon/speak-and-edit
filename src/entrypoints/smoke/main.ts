@@ -14,15 +14,9 @@ import type { FileRef } from "@/lib/files";
 import { batchUpdate, fetchDoc, fetchOutline, getGoogleToken, googleFetch, isRevisionConflict } from "@/lib/google";
 import type { Frame } from "@/lib/messages";
 import { DEFAULT_SETTINGS, loadSettings, type Settings } from "@/lib/settings";
-import { notesTarget } from "@/lib/targets/notes";
-import { newMeetingNote } from "@/lib/notes/markdown";
-import { readNote, writeNote } from "@/lib/notes/vault";
 import { docsTarget } from "@/lib/targets/docs";
 import { sheetsTarget } from "@/lib/targets/sheets";
 import { slidesTarget } from "@/lib/targets/slides";
-import { overleafTarget } from "@/lib/targets/overleaf";
-import { commentProject, projectCommentsText, readPdfLine, readProject, writeProject } from "@/lib/overleaf/tab";
-import { diffOne } from "@/lib/latex/tex";
 import tablePng from "./shared-table.png?inline";
 
 type Status = "pass" | "fail" | "soft" | "info";
@@ -288,7 +282,7 @@ async function run() {
   w.smoke.state = "running";
 
   const saved = await loadSettings();
-  // ?provider=ollama (or any provider id) overrides the saved choice for this run only.
+  // ?provider=chatgpt or ?provider=chrome overrides the saved choice for this run only.
   const forced = new URLSearchParams(location.search).get("provider") as ProviderId | null;
   const provider = forced ?? (await resolveProvider(saved.provider, saved));
   if (!provider) {
@@ -321,8 +315,6 @@ async function run() {
     provider: forced ?? saved.provider,
     models: saved.models,
     chatgptAccount: saved.chatgptAccount,
-    ollamaUrl: saved.ollamaUrl,
-    visionModels: saved.visionModels,
     wakeWord: "Scribe",
     files: [DOC, SHEET, DECK],
     approval: "auto",
@@ -343,13 +335,10 @@ async function run() {
   const recorderCalls: string[] = [];
   const listening: boolean[] = [];
   const docs = docsTarget({ fetchOutline, batchUpdate, isRevisionConflict });
-  // Obsidian notes: Chrome's private origin storage stands in for the vault folder (same file API, no picker).
-  const vault = await (await navigator.storage.getDirectory()).getDirectoryHandle(`scribe-smoke-vault-${stamp().replace(/[^0-9]/g, "")}`, { create: true });
-  const notes = notesTarget({ root: async () => vault });
   const deps: EngineDeps = {
     settings: () => settings,
-    targets: { doc: docs, sheet: sheetsTarget(googleFetch), slides: slidesTarget(googleFetch), note: notes, tex: overleafTarget({ read: readProject, write: writeProject, pdfLine: readPdfLine, comment: commentProject }) },
-    appendTranscript: (f, lines) => (f.kind === "note" ? notes.appendTranscript(f, lines) : docs.appendTranscript(f, lines)),
+    targets: { doc: docs, sheet: sheetsTarget(googleFetch), slides: slidesTarget(googleFetch) },
+    appendTranscript: (f, lines) => docs.appendTranscript(f, lines),
     model: modelFor,
     visionModel: visionModelFor,
     resolveProvider: async () => provider,
@@ -753,233 +742,6 @@ async function run() {
     expect(kind(e) === "error" && /nobody is sharing/i.test(describe(e)), describe(e));
     expect((await folderFiles(folder)).length === files, "something was uploaded");
   });
-
-  /* H. Obsidian notes (v0.7): a stand-in vault in Chrome's private storage */
-  print("\n— H. Obsidian notes");
-  const NOTE_PATH = "Meetings/Smoke test.md";
-  await writeNote(vault, NOTE_PATH, newMeetingNote("Smoke test", new Date()));
-  const NOTE: FileRef = { id: `note:${NOTE_PATH}`, kind: "note", title: "Smoke test note", vault: "smoke" };
-  const noteText = () => readNote(vault, NOTE_PATH);
-  const noteSection = (t: string, title: string) => {
-    const lines = t.split("\n");
-    const i = lines.findIndex((l) => /^#{1,6}\s/.test(l) && l.replace(/^#+\s*/, "").trim() === title);
-    if (i < 0) return "";
-    const rest = lines.slice(i + 1);
-    const j = rest.findIndex((l) => /^#{1,6}\s/.test(l));
-    return (j < 0 ? rest : rest.slice(0, j)).join("\n");
-  };
-  const allFiles = settings.files;
-  reset({ files: [NOTE] });
-  await check("H1", "add under a heading of the note, credit hidden as %% … %%", async () => {
-    const e = await say("Scribe, add to decisions: we ship the beta on March 3.");
-    expect(written(e).result.status === "applied", describe(e));
-    const d = noteSection(await noteText(), "Decisions");
-    expect(/march 3/i.test(d), `Decisions: ${d.slice(0, 200)}`);
-    expect(d.includes("%%") && d.includes(SPEAKER), "no hidden credit naming the speaker");
-    return describe(e);
-  });
-  await check("H2", "change text in the note", async () => {
-    const e = await say("Scribe, in decisions, change March 3 to March 10.");
-    written(e);
-    // The hidden credit (%% … %%) quotes what was said ("…March 3"); only the visible text must change.
-    const d = noteSection(await noteText(), "Decisions").replace(/%%.*?%%/g, "");
-    expect(/march 10/i.test(d) && !/march 3\b/i.test(d), `Decisions: ${d.slice(0, 200)}`);
-  });
-  await check("H3", "comment on a line: a callout under it", async () => {
-    const e = await say("Scribe, comment on the beta line: check this with Wei.");
-    expect(written(e).result.status === "commented", describe(e));
-    expect(/> \[!comment\][^\n]*check this with wei/i.test(await noteText()), "no comment callout");
-  });
-  reset({ files: [NOTE], approval: "manual" });
-  await check("H4", "Ask before writing: held in the panel, written on Approve", async () => {
-    const e = await say("Scribe, add an action item: Simon books the demo room.");
-    expect(kind(e) === "proposal", `expected a held change, got ${describe(e)}`);
-    expect(!/demo room/i.test(await noteText()), "written before Approve");
-    engine.approve(e.id);
-    await settle();
-    expect(/demo room/i.test(noteSection(await noteText(), "Action items")), "not under Action items after Approve");
-  });
-  reset({ files: [NOTE], listenMode: "smart" });
-  await check("H5", "Smart mode records a decision in the note", async () => {
-    const e = await say("Okay, we've agreed: the beta goes to fifty users first.");
-    written(e);
-    expect(/fifty|50/i.test(await noteText()), "decision not in the note");
-  });
-  reset({ files: [NOTE], listenMode: "record", transcriptFileId: NOTE.id });
-  await check("H6", "Record all writes the note's Transcript", async () => {
-    for (const line of ["Let's look at the numbers.", "Signups doubled last week."]) engine.addLine(SPEAKER, line, Date.now());
-    await settle();
-    engine.flushTranscript();
-    await settle();
-    const t = noteSection(await noteText(), "Transcript");
-    expect(/look at the numbers/i.test(t) && /signups doubled/i.test(t), `Transcript: ${t.slice(0, 200)}`);
-  });
-  reset({ files: [NOTE], commentsOnly: true, transcriptFileId: null });
-  await check("H7", "Comments only: a Proposed callout, the text unchanged", async () => {
-    const e = await say("Scribe, add to notes: we drop Mongo.");
-    expect(written(e).result.status === "commented", describe(e));
-    const t = await noteText();
-    expect(/> \[!comment\] Proposed:[^\n]*mongo/i.test(t), "no Proposed callout");
-    expect(!/^[^>]*drop mongo/im.test(t), "the text changed");
-  });
-  /* J. Overleaf (v0.8): the real "Scribe test" project, edited through its tab in this Chrome */
-  print("\n— J. Overleaf");
-  // A throwaway Overleaf project the smoke test may reset: its id goes in .env as WXT_SMOKE_OVERLEAF_PROJECT.
-  const PROJECT: string = import.meta.env.WXT_SMOKE_OVERLEAF_PROJECT ?? "";
-  const TEX: FileRef = { id: `overleaf:${PROJECT}`, kind: "tex", title: "Scribe test" };
-  const FIXTURE = String.raw`\documentclass{article}
-\usepackage{graphicx} % Required for inserting images
-
-\title{Scribe test}
-\author{shimeng yang}
-\date{November 2026}
-
-\begin{document}
-
-\maketitle
-
-\section{Introduction}
-Bees visit some flowers more than others.
-
-\section{Method}
-We count bees in five garden beds.
-\begin{itemize}
-  \item Tomato bed
-\end{itemize}
-
-\section{Results}
-The pilot reached 30\% accuracy.
-
-\section{Open questions}
-
-\end{document}
-`;
-  const texText = async () => (await readProject(PROJECT)).text;
-  /** A section's lines, without its % comment lines unless asked. */
-  const texSection = (t: string, title: string, withComments = false) => {
-    const lines = t.split("\n");
-    const i = lines.findIndex((l) => l.trim() === `\\section{${title}}`);
-    if (i < 0) return "";
-    const rest = lines.slice(i + 1);
-    const j = rest.findIndex((l) => /^\s*\\(section|end\{document\})/.test(l));
-    return (j < 0 ? rest : rest.slice(0, j)).filter((l) => withComments || !/^\s*%/.test(l)).join("\n");
-  };
-  /** Overleaf compiles what its server has saved, so a clean compile means the edits reached it and are valid LaTeX. */
-  const compile = async (tabId: number) => {
-    const [res] = await chrome.scripting.executeScript({
-      target: { tabId },
-      world: "MAIN",
-      // Overleaf refuses a compile right after its own auto-compile ("too-recently-compiled"), so wait and ask again.
-      func: async () => {
-        const csrf = (document.querySelector('meta[name="ol-csrfToken"]') as HTMLMetaElement | null)?.content ?? "";
-        const id = location.pathname.split("/")[2];
-        let last = { http: 0, status: "", pdf: false, tries: 0 };
-        for (let i = 1; i <= 6; i++) {
-          const r = await fetch(`/project/${id}/compile`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Csrf-Token": csrf },
-            body: JSON.stringify({ rootDoc_id: null, draft: false, check: "silent", incrementalCompilesEnabled: true, stopOnFirstError: false }),
-          });
-          const j = (await r.json()) as { status?: string; outputFiles?: { path: string }[] };
-          last = { http: r.status, status: j.status ?? "", pdf: (j.outputFiles ?? []).some((f) => f.path === "output.pdf"), tries: i };
-          if (last.status !== "too-recently-compiled") break;
-          await new Promise((res) => setTimeout(res, 5000));
-        }
-        return last;
-      },
-    });
-    return res?.result as { http: number; status: string; pdf: boolean; tries: number };
-  };
-  const texReady = (chrome.runtime.getManifest().permissions ?? []).includes("scripting");
-  if (!PROJECT) {
-    print("SKIP J no Overleaf test project: set WXT_SMOKE_OVERLEAF_PROJECT in .env to a project the test may reset.", "soft");
-  } else if (!texReady) {
-    print("FAIL J0 the loaded Scribe has no scripting permission. Reload the extension, then run again.", "fail");
-    results.push({ id: "J0", name: "Overleaf permission", status: "fail", detail: "no scripting permission", ms: 0 });
-  } else {
-    await check("J0", "open the project and reset it to the test file", async () => {
-      const d = await readProject(PROJECT);
-      expect(/\.tex$/.test(d.file), `open file is ${d.file}`);
-      const change = diffOne(d.text, FIXTURE);
-      if (change) {
-        const r = await writeProject(d.tabId, d.file, d.text, change);
-        expect(r.ok, `reset failed: ${JSON.stringify(r)}`);
-      }
-      expect((await texText()) === FIXTURE, "the project doesn't read back as the test file");
-      return `${d.file}, tab ${d.tabId}`;
-    });
-    reset({ files: [TEX] });
-    await check("J1", "add under a \\section: escaped, credit on a % [Scribe] line", async () => {
-      const e = await say("Scribe, add to results: recall was 85% on the R&D tasks.");
-      expect(written(e).result.status === "applied", describe(e));
-      const r = texSection(await texText(), "Results", true);
-      expect(/85\\%/.test(r), `85% not escaped: ${r.slice(0, 240)}`);
-      expect(!/(^|[^\\])&/.test(r.replace(/^\s*%.*$/gm, "")), `a bare & is in Results: ${r.slice(0, 240)}`);
-      expect(new RegExp(`^% \\[Scribe\\][^\\n]*${SPEAKER}`, "m").test(r), "no % [Scribe] credit naming the speaker");
-      return describe(e);
-    });
-    await check("J2", "change 30% to 35% (the source says 30\\%)", async () => {
-      const e = await say("Scribe, in results, change 30% to 35%.");
-      written(e);
-      const r = texSection(await texText(), "Results");
-      expect(/35\\%/.test(r) && !/30\\%/.test(r), `Results: ${r.slice(0, 240)}`);
-      return describe(e);
-    });
-    /** The comments in the project's review panel. */
-    const commentsText = async (near: string) => projectCommentsText((await readProject(PROJECT)).tabId, near);
-    await check("J3", "comment on a line: a real Overleaf comment, the source unchanged", async () => {
-      const before = await texText();
-      const e = await say("Scribe, comment on the tomato bed line: add the pepper bed too.");
-      const w = written(e);
-      expect(w.result.status === "commented" && !w.warning, describe(e));
-      expect(/pepper bed/i.test(await commentsText("Tomato bed")), "no comment about the pepper bed in Overleaf's review panel");
-      expect((await texText()) === before, "the source changed");
-      return describe(e);
-    });
-    await check("J4", "add to a section that ends in a list: a new \\item", async () => {
-      const e = await say("Scribe, add the herb bed to the method list.");
-      written(e);
-      const m = texSection(await texText(), "Method");
-      expect(/\\item[^\n]*herb bed[^\n]*\n(\s*%[^\n]*\n)*\s*\\end\{itemize\}/i.test(m), `Method: ${m.slice(0, 300)}`);
-      return describe(e);
-    });
-    reset({ files: [TEX], approval: "manual" });
-    await check("J5", "Ask before writing: held in the panel, written on Approve", async () => {
-      const e = await say("Scribe, add to open questions: should we drop the 7B model?");
-      expect(kind(e) === "proposal", `expected a held change, got ${describe(e)}`);
-      expect(!/7B/i.test(await texText()), "written before Approve");
-      engine.approve(e.id);
-      await settle();
-      expect(/7B/i.test(texSection(await texText(), "Open questions")), "not under Open questions after Approve");
-    });
-    reset({ files: [TEX], listenMode: "smart" });
-    await check("J6", "Smart mode records a decision in the project", async () => {
-      const e = await say("Okay, we've agreed: we report every result on three seeds.");
-      written(e);
-      expect(/three seeds|3 seeds/i.test((await texText()).replace(/^\s*%.*$/gm, "")), "decision not in the project");
-      return describe(e);
-    });
-    reset({ files: [TEX], commentsOnly: true });
-    await check("J7", "Comments only: a real Proposed comment, the text unchanged", async () => {
-      const before = await texText();
-      const e = await say("Scribe, add to the introduction: we also count butterflies.");
-      expect(written(e).result.status === "commented", describe(e));
-      expect(/Proposed:[^\n]*butterflies/i.test(await commentsText("\\section{Introduction}")), "no Proposed comment in Overleaf's review panel");
-      expect((await texText()) === before, "the text changed");
-    });
-    await check("J8", "saved by Overleaf and still compiles to a PDF", async () => {
-      await sleep(3000);
-      const { tabId } = await readProject(PROJECT);
-      await chrome.tabs.reload(tabId);
-      await sleep(1500);
-      const t = await texText();
-      expect(/35\\%/.test(t) && /herb bed/i.test(t), "after a reload the edits are gone, so Overleaf didn't save them");
-      const c = await compile(tabId);
-      expect(c.http === 200 && c.status === "success" && c.pdf, `compile: ${JSON.stringify(c)}`);
-      return `compile ${c.status} (try ${c.tries})`;
-    });
-  }
-  reset({ files: allFiles, transcriptFileId: null });
 
   /* L. Long meetings: a request that points back further than the last 6 lines */
   print("\n— L. Long meeting: referring back");

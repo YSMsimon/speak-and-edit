@@ -1,93 +1,47 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkProvider, cloudName, ensureAccess, isOllamaCloud, listOllamaCloudModels, lowestReasoning, modelFor, PROVIDER_ORIGINS, sendsOffDevice } from '../ai/providers';
-import { describeProblem } from '../problems';
-import { ADVANCED_PROVIDERS, DEFAULT_SETTINGS, type Settings } from '../settings';
+import { describe, expect, it, vi } from 'vitest';
+import { checkProvider, lowestReasoning, modelFor, sendsOffDevice, visionModelName } from '../ai/providers';
+import { DEFAULT_SETTINGS, PROVIDER_IDS, type Settings } from '../settings';
 
-const perms = { contains: vi.fn(async () => false), request: vi.fn(async () => true) };
-(globalThis as any).chrome = { permissions: perms, storage: { local: { get: async () => ({}) } } };
-afterEach(() => vi.clearAllMocks());
+(globalThis as any).chrome = { storage: { local: { get: vi.fn(async () => ({})) } } };
 
-const withKeys: Settings = { ...DEFAULT_SETTINGS, keys: { anthropic: 'sk-ant-test', openrouter: 'sk-or-test' } };
+const chatgpt: Settings = { ...DEFAULT_SETTINGS, provider: 'chatgpt', models: { ...DEFAULT_SETTINGS.models, chatgpt: 'gpt-5.4-mini' } };
 
-describe('Use your own API key', () => {
-  it('every advanced service has its own optional permission', () => {
-    for (const id of ADVANCED_PROVIDERS) expect(PROVIDER_ORIGINS[id]?.length).toBeGreaterThan(0);
-    expect(PROVIDER_ORIGINS.ollama).toBeUndefined();
+describe('providers', () => {
+  it('offers only ChatGPT and the built-in model, starting on the built-in one', () => {
+    expect(PROVIDER_IDS).toEqual(['chrome', 'chatgpt']);
+    expect(DEFAULT_SETTINGS.provider).toBe('chrome');
   });
 
-  it('asks Chrome for just that one service, straight away (from the click)', async () => {
-    expect(await ensureAccess('anthropic')).toBe(true);
-    expect(perms.request).toHaveBeenCalledWith({ origins: ['https://api.anthropic.com/*'] });
-    expect(perms.contains).not.toHaveBeenCalled();
+  it('builds both with a strict JSON schema', () => {
+    expect(modelFor('chatgpt', chatgpt).mode).toBe('strict');
+    expect(modelFor('chrome', DEFAULT_SETTINGS).mode).toBe('strict');
   });
 
-  it('only checks, never asks, when the panel refreshes its status', async () => {
-    const st = await checkProvider('anthropic', withKeys);
-    expect(perms.request).not.toHaveBeenCalled();
-    expect(st).toEqual({ ok: false, detail: 'Scribe needs permission to reach Claude (Anthropic).' });
-    perms.contains.mockResolvedValueOnce(true);
-    expect((await checkProvider('anthropic', withKeys)).ok).toBe(true);
+  it('knows which one sends lines off this computer', () => {
+    expect(sendsOffDevice('chatgpt', chatgpt)).toBe(true);
+    expect(sendsOffDevice('chrome', DEFAULT_SETTINGS)).toBe(false);
+    expect(sendsOffDevice(null, DEFAULT_SETTINGS)).toBe(false);
   });
 
-  it('says what is missing before a key is added', async () => {
-    expect(await checkProvider('groq', DEFAULT_SETTINGS)).toEqual({ ok: false, detail: 'No key added yet.' });
-    expect(await checkProvider('openrouter', DEFAULT_SETTINGS)).toEqual({ ok: false, detail: 'Not connected yet.' });
+  it('reads the shared screen with the normal model', () => {
+    expect(visionModelName('chatgpt', chatgpt)).toBe('gpt-5.4-mini');
   });
 
-  it('builds a model for each service, strict JSON where the API enforces it', () => {
-    for (const id of ADVANCED_PROVIDERS) expect(modelFor(id, withKeys).model).toBeTruthy();
-    expect(modelFor('anthropic', withKeys).mode).toBe('strict');
-    expect(modelFor('openrouter', withKeys).mode).toBe('prompt');
-    expect(sendsOffDevice('groq', withKeys)).toBe(true);
-    expect(sendsOffDevice('chrome', withKeys)).toBe(false);
-  });
-
-  it('turns the services’ key and credit errors into plain cards', () => {
-    expect(describeProblem('Incorrect API key provided: sk-…').title).toBe('That API key didn’t work');
-    expect(describeProblem('invalid x-api-key').title).toBe('That API key didn’t work');
-    expect(describeProblem('Your credit balance is too low to access the Anthropic API.').title).toBe('No credit left on that account');
-    expect(describeProblem('Scribe needs permission to reach Groq.').title).toBe('Chrome hasn’t allowed this service yet');
-  });
-});
-
-describe('Ollama cloud models', () => {
-  it('names them the way the Ollama app does', () => {
-    expect(cloudName('gpt-oss:120b')).toBe('gpt-oss:120b-cloud');
-    expect(cloudName('glm-5.3')).toBe('glm-5.3:cloud');
-    expect(isOllamaCloud('glm-5.3:cloud')).toBe(true);
-    expect(isOllamaCloud('gpt-oss:120b-cloud')).toBe(true);
-    expect(isOllamaCloud('llama3:8b')).toBe(false);
-  });
-
-  it('lists every chat model from ollama.com, marking the ones that can read pictures', async () => {
-    const fake = vi.fn(async () => new Response(JSON.stringify({ models: [
-      { name: 'gpt-oss:120b', capabilities: ['completion', 'tools'] },
-      { name: 'kimi-k3', capabilities: ['completion', 'vision'] },
-      { name: 'clef:27b', capabilities: ['decision', 'vision'] },
-    ] })));
-    const models = await listOllamaCloudModels(fake as unknown as typeof fetch);
-    expect(models).toEqual([
-      { name: 'gpt-oss:120b-cloud', vision: false },
-      { name: 'kimi-k3:cloud', vision: true },
-    ]);
+  it('says ChatGPT isn’t signed in before anything is sent', async () => {
+    expect(await checkProvider('chatgpt', chatgpt)).toEqual({ ok: false, detail: 'Not signed in.' });
   });
 });
 
 describe('lowest reasoning per model', () => {
   it('gives each model the least thinking it accepts', () => {
-    expect(lowestReasoning('ollama', 'gpt-oss:120b-cloud')).toBe('low');
-    expect(lowestReasoning('ollama', 'gemma4:31b-cloud')).toBe('none');
-    expect(lowestReasoning('groq', 'openai/gpt-oss-20b')).toBe('low');
-    expect(lowestReasoning('openai', 'gpt-5-mini')).toBe('minimal');
-    expect(lowestReasoning('openai', 'gpt-5.4-mini')).toBe('none');
+    expect(lowestReasoning('chatgpt', 'gpt-5-mini')).toBe('minimal');
+    expect(lowestReasoning('chatgpt', 'gpt-5.4-mini')).toBe('none');
     expect(lowestReasoning('chatgpt', 'gpt-5.3-codex')).toBe('low');
-    expect(lowestReasoning('anthropic', 'claude-haiku-5-5')).toBe('none');
-    expect(lowestReasoning('gemini', 'gemini-2.5-flash-lite')).toBe('none');
     expect(lowestReasoning('chrome', 'text')).toBeUndefined();
-    expect(lowestReasoning('openrouter', 'openrouter/auto')).toBeUndefined();
   });
 
   it('is on the model Scribe builds', () => {
-    expect(modelFor('ollama', DEFAULT_SETTINGS).reasoning).toBe('low');
+    expect(modelFor('chatgpt', chatgpt).reasoning).toBe('none');
+    expect(modelFor('chrome', DEFAULT_SETTINGS).reasoning).toBeUndefined();
   });
 });

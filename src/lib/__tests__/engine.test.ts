@@ -48,10 +48,10 @@ function setup(over: Partial<Settings> = {}, intents: Intent[] = [], decisions: 
   };
   const deps: EngineDeps = {
     settings: () => settings,
-    targets: { doc: docs, sheet, slides: sheet, note: { describe: async () => { throw new Error('no notes here'); }, apply: async () => { throw new Error('no notes here'); } }, tex: { describe: async () => { throw new Error('no Overleaf here'); }, apply: async () => { throw new Error('no Overleaf here'); } } },
+    targets: { doc: docs, sheet, slides: sheet },
     appendTranscript: async (_f, lines) => void transcripts.push(lines),
     model: () => ({ model: {} as never, mode: 'prompt' }),
-    resolveProvider: async () => 'ollama',
+    resolveProvider: async () => 'chatgpt',
     ai: {
       parseCommand: vi.fn(async () => ({ intent: intents.shift() ?? intent({}), usage: { inputTokens: 10, outputTokens: 5 } })),
       decideSmart: vi.fn(async () => ({ decision: decisions.shift() ?? smart({}), usage: { inputTokens: 3, outputTokens: 1 } })),

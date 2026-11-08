@@ -1,25 +1,12 @@
 # Speak and Edit
 
-An open-source Chrome extension for Google Meet. Say an edit during the call ("Scribe, add Postgres 16 to Decisions") and it lands in your Google Doc, Sheet or Slides, credited to whoever said it. The full edition also edits Obsidian notes and Overleaf projects. It reads Meet's own captions, so nothing records the audio, and the AI can be your ChatGPT plan, Ollama's free cloud models, or Chrome's built-in model.
+An open-source Chrome extension for Google Meet. Say an edit during the call ("Scribe, add Postgres 16 to Decisions") and it lands in your Google Doc, Sheet or Slides, credited to whoever said it. It reads Meet's own captions, so nothing records the audio, and the AI is your ChatGPT plan or Chrome's built-in model.
+
+This repository is the same version as the Chrome Web Store listing. Obsidian, Overleaf, Ollama and API-key support were removed on 2026-11-07; the last version with them is commit `87744b0`.
 
 "Scribe" is what you call it in the call: the wake word, which you can change. Smart mode doesn't need it at all.
 
-Status: v0.9, in development. Unit-tested, the prompts are checked against a real model, and an end-to-end smoke test runs against real Google files and an Overleaf project. Not yet used in a full live call.
-
-## Editions
-
-One codebase, two builds. The switch is `SCRIBE_FULL=1` at build time (`src/lib/edition.ts`).
-
-| | Public (the default) | Full |
-|---|---|---|
-| **Who gets it** | Chrome Web Store, GitHub Releases, `pnpm build` | `pnpm build:full`, `pnpm dev:full`, every smoke build |
-| **Files** | Google Docs, Sheets and Slides | also Obsidian notes and Overleaf projects |
-| **AI** | Sign in with ChatGPT, or Chrome's built-in model | also Ollama, OpenRouter Connect, and keys for OpenAI, Anthropic, Gemini and Groq |
-| **Permissions** | Meet, the Google APIs, ChatGPT sign-in | also localhost and ollama.com (Ollama), and optional ones asked for on first use |
-
-Nothing is deleted: the public build leaves the full edition's code out when it's built, and saved Obsidian notes, Overleaf projects, Ollama or keys are ignored in it. The unit tests run as the full edition and check the public one through `edition.test.ts`. `pnpm release` and `pnpm zip:store` always build the public edition, and the release script refuses a zip with full-edition permissions or code.
-
-The list below covers the full edition. Parts marked "full edition" aren't in the public build.
+Status: v0.9, in development. Unit-tested, the prompts are checked against a real model, and an end-to-end smoke test runs against real Google files. Not yet used in a full live call.
 
 ## What works
 
@@ -34,9 +21,6 @@ The list below covers the full edition. Parts marked "full edition" aren't in th
 - **Pausing:** anything said while a pause request was still being worked out is dropped too, as if it was said while paused.
 - **Typing:** Scribe is voice-first. The text box stays hidden behind a keyboard button at the bottom right, for when Meet mishears or you can't speak aloud. Sending, ✕ or Esc closes it.
 - **Version:** hover the logo to see the version and build time ("v0.9 · 18:24"), so you can tell a reload took.
-- **Obsidian** (v0.7, full edition): Outputs › Obsidian. Choose your vault folder once, then "New note" makes a meeting note in `Meetings/`, or add existing notes. Scribe adds under headings, changes text, comments as `> [!comment]` callouts, keeps credit hidden as `%% … %%`, and Record all writes the note's Transcript. Files stay on your computer; nothing to sign in to.
-- **Overleaf** (v0.8, full edition): Outputs › Overleaf lists the projects open in this Chrome; **Add** asks Chrome once for overleaf.com. Scribe edits the `.tex` file open in the project's tab, through Overleaf's own editor, so Overleaf saves it and co-authors see it live. It adds under `\section{…}` (as `\item` lines when the section ends in a list), changes text, and credits on `% [Scribe] …` lines, which are in the source and never in the PDF. **Comments are real Overleaf comments**, in the review panel with your name, made through Overleaf's own comment box on the words they're about. If that box won't open, Scribe writes the comment as a `% [Scribe]` line instead and says so on the card. What people say is made safe for LaTeX (`30%` becomes `30\%`; `& $ # _ { }` likewise), and "change 30% to 35%" finds `30\%`. If the tab is closed, Scribe opens it in the background. Screenshots go in as a `% [Scribe]` line with the Drive link. Track changes is a paid Overleaf feature, so Ask before writing holds changes in the panel. **Line numbers:** "comment on line 12" uses the PDF's margin line numbers when the paper has them (conference review templates, or `lineno`). Scribe reads that line in the project's PDF preview, in either column, finds the source line it comes from, and comments under it. "Source line 12" means the editor's line 12. If the PDF preview isn't showing that line, Scribe says so instead of guessing. The card says where each `% [Scribe]` line went ("line 24"). The `scripting` permission is only used on Overleaf tabs.
-- **Use your own API key** (v0.6, full edition): collapsed at the bottom of AI model. OpenRouter Connect, or keys for Anthropic (the only allowed way to use Claude), OpenAI, Gemini and Groq. Each service's permission is asked for only when you first use it.
 - **Names and photos:** each line shows the speaker's name and the photo Meet shows next to their captions. Your own lines use your Google account name and photo (the `userinfo.profile` permission) instead of Meet's "You". Meet often hears "Scribe" as "Subscribe", "Describe" or "Scrub". A first word that only sounds like the wake word (Double Metaphone codes) gets one short extra AI call: does the line ask Scribe to do one of its jobs, or is it ordinary talk ("describe the flow for me")? Only a yes runs, in the speaker's own words. The wake word itself never needs the extra call.
   - **Record all:** no model. Every line goes into a "Transcript" section at the end of a chosen Doc, written in batches.
 - **Approval** (picker next to it): **Auto** writes straight into the file. **Ask before writing** puts Docs edits in as suggestions to accept or reject (in the panel or the Doc); anything that can't be a suggestion (Sheets, Slides, transcript lines, screenshots) waits in the panel for Approve. "Approve all" clears the queue. Comments go straight in either way. New installs start on Ask before writing.
@@ -48,7 +32,7 @@ The list below covers the full edition. Parts marked "full edition" aren't in th
   - **Slides:** bullets, text replaced on one slide, new slides, and credit in speaker notes.
 - **How changes land:** edit the file (the approval picker decides how), or comments only.
 - **Shared screen** (v0.3, Live tab, when someone presents):
-  - **Read it into files:** "Scribe, add this table to the tracker". A model that can see pictures reads the screen and writes text: Sheet rows, Doc lines, slide bullets. Ollama uses `gemma4:31b-cloud` for this (free); `gpt-oss` can't see pictures.
+  - **Read it into files:** "Scribe, add this table to the tracker". The AI model reads the screen and writes text: Sheet rows, Doc lines, slide bullets.
   - **Screenshots:** "Scribe, screenshot this into the deck", or the Screenshot button. Slides get a new slide with the picture; Docs get it under a "Shared screen" heading; Sheets get a link in a "Scribe captures" tab.
   - **Save each new slide:** a switch. Scribe saves the screen whenever it changes and then holds still, so a playing video or a moving cursor isn't saved over and over.
   - **Record:** records the Meet tab with sound, from a click only. Saved to Drive; Slides embed it, Docs and Sheets link to it. Your own microphone isn't in the recording (Meet doesn't play you back to yourself), and Meet doesn't tell anyone, so say you're recording.
@@ -57,11 +41,10 @@ The list below covers the full edition. Parts marked "full edition" aren't in th
 - **People:** each speaker can edit, comment only, or be ignored.
 - **AI, with no API keys:**
   - **ChatGPT:** your own Plus or Pro plan, through OpenAI's "Sign in with ChatGPT" (preview).
-  - **Ollama:** free cloud models, nothing downloaded.
-  - **The browser's built-in model:** Gemini Nano in Chrome, Phi-4-mini in Edge.
-  - **No Auto:** you pick one. Ollama is the default, and signing in with ChatGPT switches to it.
-  - **Reading the shared screen:** all three can do it (Ollama through `gemma4:31b-cloud`).
-  - **Not possible:** Claude and Gemini subscriptions, because Anthropic requires its approval for apps that offer Claude login and Google has no route for apps. API keys (OpenRouter, OpenAI, Anthropic, Gemini, Groq) were removed in v0.5 to keep setup simple.
+  - **The browser's built-in model:** Gemini Nano in Chrome, Phi-4-mini in Edge. Free, and nothing leaves the computer.
+  - **No Auto:** you pick one. The built-in model is the default, and signing in with ChatGPT switches to it.
+  - **Reading the shared screen:** both can do it.
+  - **Not possible:** Claude and Gemini subscriptions, because Anthropic doesn't allow its subscription in other apps and Google has no route for apps.
 - **How "Sign in with ChatGPT" differs from OpenAI's docs**, which are written for desktop apps:
   - **The sign-in reply:** OpenAI expects it at a program listening on `127.0.0.1`. Scribe reads it from the tab's address instead; PKCE makes the code useless to anything else.
   - **The tokens:** Scribe keeps them in extension storage, which web pages can't read. OpenAI asks for them to stay out of browser storage.
@@ -71,24 +54,23 @@ Planned: Zoom and Teams web, Claude through MCP, Notion, GitHub, Word, PDF.
 
 ## Install
 
-Download `speak-and-edit-<version>-chrome.zip` from [Releases](https://github.com/YSMsimon/speak-and-edit/releases) and unzip it. It's the public edition; for Obsidian, Overleaf and Ollama, build the full edition below. In Chrome, open `chrome://extensions`, turn on Developer mode, click Load unpacked and pick the unzipped folder. 0.x versions are pre-releases; a Chrome Web Store listing comes later. Until Google reviews the app, Google Docs, Sheets and Slides sign-in only works for accounts added as testers.
+Download `speak-and-edit-<version>-chrome.zip` from [Releases](https://github.com/YSMsimon/speak-and-edit/releases) and unzip it. In Chrome, open `chrome://extensions`, turn on Developer mode, click Load unpacked and pick the unzipped folder. 0.x versions are pre-releases; a Chrome Web Store listing comes later. Until Google reviews the app, Google Docs, Sheets and Slides sign-in only works for accounts added as testers.
 
 ## Build and load
 
 ```sh
 pnpm install
 cp .env.example .env      # add your Google client ID, see below
-pnpm build                # the public edition, in .output/chrome-mv3
-pnpm build:full           # the full edition: also Obsidian, Overleaf, Ollama and API keys
+pnpm build                # output in .output/chrome-mv3
 pnpm test                 # unit tests
-SCRIBE_LIVE=1 pnpm test   # also runs 4 requests against a real model (Ollama cloud, nothing downloaded)
+SCRIBE_LIVE=1 OPENAI_API_KEY=… pnpm test   # also checks the prompts against a real OpenAI model (gpt-5-mini)
 ```
 
 In Chrome: `chrome://extensions` → Developer mode → Load unpacked → pick `.output/chrome-mv3`. Click the toolbar icon to open the side panel. Note the extension's ID on that page: Google sign-in is tied to it. To keep the same ID on every computer, put a public key in `.keys/public-key.b64` (git-ignored) and the build adds it to the manifest.
 
-`pnpm dev` (or `pnpm dev:full`) starts a live-reloading build in a separate Chrome profile.
+`pnpm dev` starts a live-reloading build in a separate Chrome profile.
 
-To publish a release: `pnpm release 0.9.1`. It tests, builds the public edition and scans the zip, then tags and uploads it to GitHub Releases after you answer y. Add `--dry-run` to stop before anything is committed or pushed.
+To publish a release: `pnpm release 0.9.1`. It tests, builds and scans the zip, then tags and uploads it to GitHub Releases after you answer y. Add `--dry-run` to stop before anything is committed or pushed.
 
 ## Google sign-in (one-time)
 
@@ -100,21 +82,7 @@ To publish a release: `pnpm release 0.9.1`. It tests, builds the public edition 
 
 Scribe asks for the full `documents`, `spreadsheets` and `presentations` scopes so you can use any file. That scope needs Google's app verification before the public can use it. The plan before a public release is to switch to `drive.file` plus Google Picker, which needs no verification.
 
-## Ollama (full edition)
-
-The default Ollama model is `gpt-oss:120b-cloud`, one of Ollama's free cloud models (also `gemma4:31b-cloud` and `gpt-oss:20b-cloud`). In a live check on 2026-11-01, 120b and gemma4 handled all four test requests; 20b sometimes guessed instead of asking when a request was ambiguous. They run on Ollama's servers through the signed-in Ollama app, so nothing is downloaded. Scribe never pulls models.
-
-These models don't enforce a JSON schema, so for Ollama Scribe puts the exact keys in the prompt, parses the reply leniently, and retries once.
-
-Ollama blocks browser extensions until you allow this one:
-
-```sh
-launchctl setenv OLLAMA_ORIGINS chrome-extension://<your-extension-id>
-```
-
-Then quit and reopen Ollama. Don't use `*`: that lets every website reach Ollama.
-
-### Shared screen: what isn't verified yet
+## Shared screen: what isn't verified yet
 
 - **Finding the shared screen in Meet** relies on the tile's English label ("(Presentation)" / "is presenting"). Checked against nothing live yet.
 - **Which Drive link Google can copy from:** Scribe tries `drive.google.com/uc?export=download&id=…`, then `lh3.googleusercontent.com/d/…`, then falls back to a linked caption.
@@ -140,20 +108,18 @@ Each request gets the last 6 lines, plus older lines that fit about **10% of the
 2. The newest of the other older lines.
 3. Once the meeting no longer fits, a short running summary of the oldest part, written in the background (never while a request waits) and saved with the meeting. Exact words, and credits, always come from the saved lines, never the summary.
 
-The cap is for speed and cost, not space: an hour of talk is about 12k tokens, and each request reads the whole budget again. Context windows: Ollama cloud models 128k (local Ollama models keep Ollama's 4k default), Chrome's built-in model 4k, OpenRouter as its model list says, others from what each provider offers. Smart mode judges every line, so it gets only the summary. Record all uses no model, so nothing is summarized there.
+The cap is for speed and cost, not space: an hour of talk is about 12k tokens, and each request reads the whole budget again. Context windows: ChatGPT's models 128k, Chrome's built-in model 4k. Smart mode judges every line, so it gets only the summary. Record all uses no model, so nothing is summarized there.
 
 ### How much the AI thinks
 
-Every request asks the model for the least reasoning it takes (`lowestReasoning` in `src/lib/ai/providers.ts`). Scribe's jobs are short, and on its 32 test cases (run twice each, `src/lib/__tests__/reasoning.eval.test.ts`, 2026-11-07) the lowest level was as accurate and faster:
+Every request asks the model for the least reasoning it takes (`lowestReasoning` in `src/lib/ai/providers.ts`). Scribe's jobs are short, and on its 32 test cases (run twice each, 2026-11-07) the lowest level was as accurate and faster:
 
 | Model | Accuracy, default → lowest | Median | p90 |
 |---|---|---|---|
-| Ollama gpt-oss 120b (`low`) | 64/64 → 64/64 | 1.64 s → 1.05 s | 2.68 s → 1.38 s |
 | OpenAI gpt-5-mini (`minimal`) | 64/64 → 64/64 | 18.8 s → 5.5 s | 41.0 s → 7.2 s |
-| Claude Haiku 5.5 (`none`) | 64/64 → 64/64 | 4.16 s → 3.83 s | 6.90 s → 4.62 s |
 | OpenAI gpt-5.4-mini (`none`) | 64/64 → 63/64 | 3.16 s → 3.18 s | 3.80 s → 3.65 s |
 
-gpt-oss can't turn reasoning off (it ignores `none`), so it gets `low`; gpt-5.1 and later already default to none; gemma4 (the shared-screen model) doesn't reason. Chrome's built-in model has no reasoning setting, and OpenRouter's models vary, so both are left alone. If a provider refuses the setting, Scribe sends the request again without it. To rerun: `SCRIBE_EVAL=1 pnpm exec vitest run src/lib/__tests__/reasoning.eval.test.ts` (OpenAI and Anthropic rows need `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`).
+gpt-5.1 and later already default to none. Chrome's built-in model has no reasoning setting. If a model refuses the setting, Scribe sends the request again without it.
 
 ## The AI log, for finding mistakes
 
@@ -196,17 +162,17 @@ If a line is only "Scribe,", the same speaker's next line within 8 seconds count
 
 Every failure is turned into one shape (`src/lib/problems.ts`):
 - a short title, and one line saying why or what to do;
-- buttons that fix it: Try again, Open AI model, Continue with ChatGPT, Use Ollama, Sign in to Google, Reload Meet, and others;
+- buttons that fix it: Try again, Open AI model, Continue with ChatGPT, Use the built-in model, Sign in to Google, Reload Meet, and others;
 - the raw message under **Details**.
 
 The same card (`src/sidepanel/problem.tsx`, glasscn's Glass Alert) is used everywhere:
 
 | Where | When | Example |
 |---|---|---|
-| Top of Live (banner, one at a time, dismissible) | Something stops Scribe working: the chosen AI isn't ready (checked every minute), or a file can't be read | "Ollama isn't running": Get Ollama |
+| Top of Live (banner, one at a time, dismissible) | Something stops Scribe working: the chosen AI isn't ready (checked every minute), or a file can't be read | "ChatGPT isn't signed in": Continue with ChatGPT · Use the built-in model |
 | Under the line that failed (conversation) | A request couldn't be done | "You can't edit this file": Open Outputs; spoken and typed lines get **Try again** |
-| Inside the row or bar that failed | Sign-in, Test, connecting a file, recording | "Couldn't connect ChatGPT": Try again · Use Ollama |
-| Toast (bottom, two lines, no buttons) | Confirmations only | "Ollama works", "Signed out of ChatGPT" |
+| Inside the row or bar that failed | Sign-in, Test, connecting a file, recording | "Couldn't connect ChatGPT": Try again · Use the built-in model |
+| Toast (bottom, two lines, no buttons) | Confirmations only | "Switched to the built-in model", "Signed out of ChatGPT" |
 
 Colours and icons:
 - **Errors:** red, with a circle-alert icon.
@@ -221,9 +187,9 @@ Runs real requests through the engine, the real AI and the real Google APIs, on 
 SCRIBE_SMOKE=1 pnpm wxt build     # normal builds leave the smoke page out
 ```
 
-Reload Scribe on `chrome://extensions`, then open `chrome-extension://<your-extension-id>/smoke.html?run=1` (add `&provider=ollama` to force a provider). 40 checks across all modes, approval, the control tool, comments-only, Sheets/Slides/Docs, screenshots (checked private afterwards), auto-capture and recordings. It can't reach Meet itself: captions, finding the shared screen and tab capture still need a live call.
+Reload Scribe on `chrome://extensions`, then open `chrome-extension://<your-extension-id>/smoke.html?run=1` (add `&provider=chatgpt` or `&provider=chrome` to force one). 40 checks across all modes, approval, the control tool, comments-only, Sheets/Slides/Docs, screenshots (checked private afterwards), auto-capture and recordings. It can't reach Meet itself: captions, finding the shared screen and tab capture still need a live call.
 
-Results on 2026-11-01: 23/40 with Chrome's built-in Gemini Nano; 39/40 with Ollama `gpt-oss:120b-cloud` + `gemma4:31b-cloud` after the fixes the earlier runs found.
+Results on 2026-11-01: 23/40 with Chrome's built-in Gemini Nano. (The other runs back then used Ollama, which this version no longer has.) `sh scripts/smoke-run.sh` runs it through the local smoke server, with ChatGPT by default.
 
 ## Testing in a real call
 

@@ -11,7 +11,7 @@ import { GlassAlert } from "@/components/glasscn/ui/glasscn/glass-alert";
 import { GlassButton } from "@/components/glasscn/ui/glasscn/glass-button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-/** App-level handlers for fix buttons (switch tab, sign in, use Ollama…). "retry" is handled by each caller. */
+/** App-level handlers for fix buttons (switch tab, sign in, use the built-in model…). "retry" is handled by each caller. */
 export const FixContext = createContext<(fix: Fix) => void>(() => undefined);
 
 const ICON: Record<Severity, typeof CircleAlertIcon> = { error: CircleAlertIcon, warning: TriangleAlertIcon, info: InfoIcon };

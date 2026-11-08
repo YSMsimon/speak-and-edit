@@ -8,14 +8,8 @@ import { ensureFolder, sharePublicly, upload, type DriveIO } from "@/lib/drive";
 import { defaultAi, Engine, type EngineState, type RecordingDone } from "@/lib/engine";
 import { batchUpdate, fetchOutline, getGoogleProfile, googleFetch, googleToken, isRevisionConflict } from "@/lib/google";
 import { docsTarget } from "@/lib/targets/docs";
-import { notesTarget } from "@/lib/targets/notes";
-import { overleafTarget } from "@/lib/targets/overleaf";
-import { commentProject, readPdfLine, readProject, writeProject } from "@/lib/overleaf/tab";
-import { loadVault, vaultAccess } from "@/lib/notes/vault";
 import { sheetsTarget } from "@/lib/targets/sheets";
 import { slidesTarget } from "@/lib/targets/slides";
-import type { Target } from "@/lib/targets/types";
-import { FULL } from "@/lib/edition";
 import type { CaptureReply, MeetState, MissedLine, ToMeet, ToPanel } from "@/lib/messages";
 import { injectMeetScript } from "@/lib/meet-script";
 import { interactionLog } from "./log";
@@ -46,11 +40,11 @@ export function useSettings() {
   return { settings, update, loaded, ref };
 }
 
-/** Caches "auto" provider resolution for 30 s so each line doesn't re-probe Ollama. */
+/** Caches provider resolution for 30 s so each line doesn't check again. */
 function cachedResolver() {
   let cache: { key: string; id: ProviderId | null; at: number } | null = null;
   return async (s: Settings) => {
-    const key = JSON.stringify([s.provider, s.models, s.chatgptAccount, s.ollamaUrl]);
+    const key = JSON.stringify([s.provider, s.models, s.chatgptAccount]);
     if (cache && cache.key === key && Date.now() - cache.at < 30_000) return cache.id;
     const id = await resolveProvider(s.provider, s);
     cache = { key, id, at: Date.now() };
@@ -62,14 +56,6 @@ const driveIO: DriveIO = {
   token: googleToken,
   fetch: (input, init) => fetch(input, init),
 };
-
-/** A file type this edition leaves out. Settings drop such files, so this only guards. */
-function notInThisEdition(what: string): Target {
-  const fail = async (): Promise<never> => {
-    throw new Error(`${what} aren’t in this version of Speak and Edit.`);
-  };
-  return { describe: fail, apply: fail };
-}
 
 /** What the control tool can switch that lives outside the engine. App fills in the recorder. */
 export interface Controls {
@@ -90,28 +76,11 @@ export function useEngine(settingsRef: React.MutableRefObject<Settings>, update:
   const pauseRef = useRef<(paused: boolean) => Promise<void>>(async () => undefined);
   const engine = useMemo(() => {
     const docs = docsTarget({ fetchOutline, batchUpdate, isRevisionConflict });
-    // Obsidian and Overleaf are in the full edition only; the public build leaves them out (lib/edition.ts).
-    const notes = FULL
-      ? notesTarget({
-          root: async () => {
-            const vault = await loadVault();
-            if (!vault) throw new Error("Choose your Obsidian vault folder in Outputs first.");
-            if (!(await vaultAccess(vault, false))) throw new Error("Chrome needs your OK to use the Obsidian vault again. Open Outputs › Obsidian and click Allow.");
-            return vault;
-          },
-        })
-      : null;
     let folder: string | null = null; // checked once per session
     return new Engine({
       settings: () => settingsRef.current,
-      targets: {
-        doc: docs,
-        sheet: sheetsTarget(googleFetch),
-        slides: slidesTarget(googleFetch),
-        note: notes ?? notInThisEdition("Obsidian notes"),
-        tex: FULL ? overleafTarget({ read: readProject, write: writeProject, pdfLine: readPdfLine, comment: commentProject }) : notInThisEdition("Overleaf projects"),
-      },
-      appendTranscript: (file, lines) => (file.kind === "note" && notes ? notes.appendTranscript(file, lines) : docs.appendTranscript(file, lines)),
+      targets: { doc: docs, sheet: sheetsTarget(googleFetch), slides: slidesTarget(googleFetch) },
+      appendTranscript: (file, lines) => docs.appendTranscript(file, lines),
       model: modelFor,
       visionModel: visionModelFor,
       resolveProvider: cachedResolver(),
@@ -526,13 +495,13 @@ export function useElapsed(t: RecorderTiming | null): string {
 /** Why the chosen AI can't run right now, or null. Checked when the choice changes and once a minute, so the Live banner can say so before a request fails. */
 export function useProviderHealth(settings: Settings): string | null {
   const [problem, setProblem] = useState<string | null>(null);
-  const { provider, models, ollamaUrl, chatgptAccount } = settings;
+  const { provider, models, chatgptAccount } = settings;
   useEffect(() => {
     // The demo's made-up ChatGPT account has no real sign-in to check.
     if (DEMO) return;
     let alive = true;
     const check = () =>
-      checkProvider(provider, { ...settings, provider, models, ollamaUrl, chatgptAccount }).then(
+      checkProvider(provider, { ...settings, provider, models, chatgptAccount }).then(
         (a) => alive && setProblem(a.ok ? null : a.detail),
         (e) => alive && setProblem(normalizeError(e))
       );
@@ -544,6 +513,6 @@ export function useProviderHealth(settings: Settings): string | null {
     };
     // settings is read only for the fields listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, models, ollamaUrl, chatgptAccount]);
+  }, [provider, models, chatgptAccount]);
   return problem;
 }

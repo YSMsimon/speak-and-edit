@@ -27,9 +27,8 @@ import { dataUrlToBlob, type DriveFile, type PublicLink } from "./drive";
 import { KIND_LABEL, type FileKind, type FileRef } from "./files";
 import type { Frame, MeetState } from "./messages";
 import { captureFile, focusFile, transcriptFile, type ProviderId, type Settings } from "./settings";
-import { NeedsChoice, squash, type ApplyResult, type FileContext, type LandAs, type LineHit, type Target, type WriteIntent } from "./targets/types";
+import { NeedsChoice, squash, type ApplyResult, type FileContext, type LandAs, type Target, type WriteIntent } from "./targets/types";
 import { detectWake, isResume, looksLikeControl } from "./wake";
-import { lineReference } from "./latex/tex";
 
 /** A screenshot or recording waiting to be saved and added to a file. */
 export interface PendingMedia {
@@ -1076,14 +1075,13 @@ export class Engine {
     if (!model) return this.setAction(entry.id, { kind: "error", message: this.state.providerError ?? "No AI is ready." });
 
     this.setAction(entry.id, { kind: "pending", step: "Working out the request" });
-    const line = await this.lineHint(command, clarification);
-    const ctx = { outline, recent: this.recent(entry.id), earlier: (await this.earlier(entry.id, command)) || undefined, screen: this.screenLine(), state: this.stateLine(), lineHint: line?.hint, line };
+    const ctx = { outline, recent: this.recent(entry.id), earlier: (await this.earlier(entry.id, command)) || undefined, screen: this.screenLine(), state: this.stateLine() };
     const { intent, usage } = await this.deps.ai.parseCommand(model, { speaker: entry.speaker, command, clarification }, ctx);
     this.addUsage(usage);
     await this.applyIntent(entry, command, intent, ctx, model);
   }
 
-  private async applyIntent(entry: Entry, command: string, intent: Intent, ctx: { outline: string; recent: string[]; earlier?: string; screen?: string; line?: LineContext }, model: AiModel) {
+  private async applyIntent(entry: Entry, command: string, intent: Intent, ctx: { outline: string; recent: string[]; earlier?: string; screen?: string }, model: AiModel) {
     const writes = intent.action === "append" || intent.action === "replace" || intent.action === "new_slide" || intent.action === "comment";
     if (writes && intent.screen === "image") return this.screenshotCommand(entry, command, intent);
     if (writes && intent.screen === "read") return this.readCommand(entry, command, intent, ctx);
@@ -1106,15 +1104,9 @@ export class Engine {
         return this.setAction(entry.id, { kind: "answer", answer });
       }
       default: {
-        const line = ctx.line;
-        const file = (line && !intent.file ? line.file : undefined) ?? this.resolveFile(intent.file, intent.action);
+        const file = this.resolveFile(intent.file, intent.action);
         if (!file) return this.setAction(entry.id, { kind: "error", message: "Connect a Google file in the Outputs tab first." });
-        let find = intent.find;
-        // "Comment on line 12": anchor at the line Scribe found, even if the model left "find" empty.
-        if (line && file.id === line.file.id && intent.action === "comment" && !find) {
-          if (!line.hit?.text) return this.setAction(entry.id, { kind: "error", message: line.missing });
-          find = line.hit.text.trim().slice(0, 120);
-        }
+        const find = intent.find;
         const write: WriteIntent = {
           action: intent.action,
           section: intent.section,
@@ -1126,33 +1118,6 @@ export class Engine {
         return this.gate(entry, { origin: "command", file, write, quote: command, speaker: entry.speaker, at: entry.at, commentOnly: this.commentOnly(entry) });
       }
     }
-  }
-
-  /**
-   * "Line 12" in a request about a paper: read that line from the Overleaf PDF's margin numbers (or the
-   * source, for "source line 12"), so the model knows which words it means.
-   */
-  private async lineHint(command: string, answer?: string): Promise<LineContext | undefined> {
-    // The answer to "Which line?" wins over the request; a bare "21" counts when the request was about a line.
-    const bare = answer && lineReference(command) ? /\b(\d{1,4})\b/.exec(answer) : null;
-    const ref = (answer ? lineReference(answer) : null) ?? (bare ? { n: Number(bare[1]), source: false } : null) ?? lineReference(command);
-    if (!ref) return undefined;
-    const s = this.deps.settings();
-    const tex = s.files.filter((f) => f.kind === "tex");
-    const focus = focusFile(s);
-    const file = focus?.kind === "tex" ? focus : (tex.find((f) => squash(command).includes(squash(f.title))) ?? tex[0]);
-    const target = file ? this.deps.targets[file.kind] : undefined;
-    if (!file || !target?.lineRef) return undefined;
-    const hit = await target.lineRef(file, ref).catch(() => null);
-    const where = ref.source ? `source line ${ref.n}` : `line ${ref.n}`;
-    const missing = ref.source
-      ? `“${file.title}” has no source line ${ref.n} with text on it.`
-      : `Couldn’t find line ${ref.n} in the PDF preview of “${file.title}”. Show that page in Overleaf’s PDF, or say the words on the line.`;
-    if (!hit) return { file, hint: `"${where}" in “${file.title}” couldn't be found.`, missing };
-    const parts = [`"${where}" means ${hit.label} in “${file.title}”`];
-    if (hit.pdfText) parts.push(`which reads: “${hit.pdfText}”`);
-    if (hit.text) parts.push(`It is source line ${hit.line}: “${hit.text.trim().slice(0, 400)}”`);
-    return { file, hit, hint: parts.join(", ") + ".", missing };
   }
 
   /** "Scribe, screenshot this into the deck." */
@@ -1452,27 +1417,16 @@ function describeAction(a: Action): string | undefined {
   }
 }
 
-/** What a line number in the request points at. */
-interface LineContext {
-  file: FileRef;
-  hit?: LineHit;
-  /** For the model. */
-  hint: string;
-  /** Said when a comment can't be placed because the line wasn't found. */
-  missing: string;
-}
-
 const ANSWER_STOP = new Set("the a an one please it that this".split(" "));
 const answerWords = (t: string) => squash(t).split(" ").filter((x) => x && !ANSWER_STOP.has(x));
 
 /**
- * Does a short reply answer Scribe's question? One of the offered choices (most of its words), a line
- * number when the question or request is about a line, or a pick like "the first one", "option 2", "skip it".
+ * Does a short reply answer Scribe's question? One of the offered choices (most of its words), or a pick
+ * like "the first one", "option 2", "skip it".
  */
 export function looksLikeAnswer(reply: string, question: string, options: string[], command: string): boolean {
   const r = reply.trim();
   if (/^(the\s+)?(first|second|third|fourth|last|other|top|bottom|former|latter)\b|^(option|number|choice)\s+\d|^(neither|both|none|skip it)\b/i.test(r)) return true;
-  if (lineReference(r) || (/\b\d{1,4}\b/.test(r) && /\b(line|online|blind)\b/i.test(`${question} ${command}`) && answerWords(r).length <= 3)) return true;
   const said = answerWords(r);
   return options.some((o) => {
     const opt = answerWords(o);

@@ -4,5 +4,3 @@ declare const __SCRIBE_BUILT__: string;
 declare const __SCRIBE_SMOKE__: boolean;
 /** Built by scripts/screens.mjs for screenshots: smoke pages, but no dev bridge. */
 declare const __SCRIBE_SCREENS__: boolean;
-/** True in the full edition (SCRIBE_FULL=1, smoke builds, tests): Obsidian, Overleaf, Ollama and API keys. False in the public edition. */
-declare const __SCRIBE_FULL__: boolean;

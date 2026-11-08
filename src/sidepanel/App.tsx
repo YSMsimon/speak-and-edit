@@ -89,11 +89,6 @@ export function App() {
           return open("https://chatgpt.com/pricing");
         case "manage-usage":
           return open(MANAGE_USAGE_URL);
-        case "use-ollama":
-          update({ provider: "ollama" });
-          return void toast.success("Switched to Ollama");
-        case "get-ollama":
-          return open("https://ollama.com/download");
         case "use-builtin":
           update({ provider: "chrome" });
           return void toast.success("Switched to the built-in model");

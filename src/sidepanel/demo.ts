@@ -2,14 +2,12 @@
 // people and edits, for screenshots and design checks. Nothing here reaches a real file or call.
 import type { EngineState, Entry, Proposal } from "@/lib/engine";
 import type { FileRef } from "@/lib/files";
-import { FULL } from "@/lib/edition";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings";
 
 const params = typeof location === "undefined" ? new URLSearchParams() : new URLSearchParams(location.search);
 export const DEMO = __SCRIBE_SMOKE__ && params.has("demo");
 export const DEMO_TAB = (params.get("tab") ?? "live") as "live" | "outputs" | "ai" | "people";
 
-const PAPER: FileRef = { id: "overleaf:000000000000000000000001", kind: "tex", title: "Paper" };
 const ROADMAP: FileRef = { id: "demo-doc", kind: "doc", title: "Roadmap" };
 const TASKS: FileRef = { id: "demo-sheet", kind: "sheet", title: "Tasks" };
 const DECK: FileRef = { id: "demo-slides", kind: "slides", title: "Launch deck" };
@@ -21,11 +19,11 @@ function written(id: string, speaker: string, at: number, text: string, file: Fi
   return { id, speaker, text, at, addressed: true, typed: false, action: { kind: "written", proposal, result: { where, add, remove, status: "applied", suggestionIds: [] } } };
 }
 
-// The public edition's demo shows only Google files and ChatGPT (lib/edition.ts).
 export const DEMO_SETTINGS: Settings = {
   ...DEFAULT_SETTINGS,
-  ...(FULL ? {} : { provider: "chatgpt" as const, chatgptAccount: "priya@example.com" }),
-  files: FULL ? [ROADMAP, TASKS, DECK, PAPER] : [ROADMAP, TASKS, DECK],
+  provider: "chatgpt",
+  chatgptAccount: "priya@example.com",
+  files: [ROADMAP, TASKS, DECK],
   focusFileId: ROADMAP.id,
   listenMode: "smart",
   approval: "auto",
@@ -49,9 +47,7 @@ const MORE: Entry[] = [
 export const DEMO_STATE: EngineState = {
   meet: { status: "listening", title: "Design review", userName: "Priya", paused: false, screen: null },
   entries: [
-    FULL
-      ? written("d1", "Priya", T0, "Scribe, add the test results to the paper.", PAPER, "Results", "Recall was 85% on the pilot.")
-      : written("d1", "Priya", T0, "Scribe, add to decisions that we ship the beta to ten teams.", ROADMAP, "Decisions", "Ship the beta to ten teams."),
+    written("d1", "Priya", T0, "Scribe, add to decisions that we ship the beta to ten teams.", ROADMAP, "Decisions", "Ship the beta to ten teams."),
     written("d2", "Marco", T0 + 62_000, "Let’s move launch to March in the roadmap.", ROADMAP, "Timeline", "Launch moves to March.", "Launch in February."),
     written("d3", "Lena", T0 + 130_000, "Also add the follow-up tasks for next week.", TASKS, "Sheet1 row 4", "Write the launch email · Lena · Friday"),
     { id: "d4", speaker: "Priya", text: "Perfect, that looks good.", at: T0 + 190_000, addressed: false, typed: false, action: { kind: "skipped" } },
@@ -65,9 +61,8 @@ export const DEMO_STATE: EngineState = {
     [ROADMAP.id]: { title: ROADMAP.title, parts: ["Timeline", "Decisions"] },
     [TASKS.id]: { title: TASKS.title, parts: ["Sheet1"] },
     [DECK.id]: { title: DECK.title, parts: ["Next steps"] },
-    ...(FULL ? { [PAPER.id]: { title: PAPER.title, parts: ["Introduction", "Results"] } } : {}),
   },
-  provider: FULL ? "ollama" : "chatgpt",
+  provider: "chatgpt",
   providerError: null,
   usage: { inputTokens: 0, outputTokens: 0 },
 };
