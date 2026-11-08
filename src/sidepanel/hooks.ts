@@ -10,7 +10,7 @@ import { batchUpdate, fetchOutline, getGoogleProfile, googleFetch, googleToken, 
 import { docsTarget } from "@/lib/targets/docs";
 import { notesTarget } from "@/lib/targets/notes";
 import { overleafTarget } from "@/lib/targets/overleaf";
-import { readProject, writeProject } from "@/lib/overleaf/tab";
+import { commentProject, readPdfLine, readProject, writeProject } from "@/lib/overleaf/tab";
 import { loadVault, vaultAccess } from "@/lib/notes/vault";
 import { sheetsTarget } from "@/lib/targets/sheets";
 import { slidesTarget } from "@/lib/targets/slides";
@@ -90,7 +90,7 @@ export function useEngine(settingsRef: React.MutableRefObject<Settings>, update:
     let folder: string | null = null; // checked once per session
     return new Engine({
       settings: () => settingsRef.current,
-      targets: { doc: docs, sheet: sheetsTarget(googleFetch), slides: slidesTarget(googleFetch), note: notes, tex: overleafTarget({ read: readProject, write: writeProject }) },
+      targets: { doc: docs, sheet: sheetsTarget(googleFetch), slides: slidesTarget(googleFetch), note: notes, tex: overleafTarget({ read: readProject, write: writeProject, pdfLine: readPdfLine, comment: commentProject }) },
       appendTranscript: (file, lines) => (file.kind === "note" ? notes.appendTranscript(file, lines) : docs.appendTranscript(file, lines)),
       model: modelFor,
       visionModel: visionModelFor,

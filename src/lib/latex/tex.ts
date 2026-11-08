@@ -157,7 +157,36 @@ export function commentOn(text: string, section: string | null, find: string | n
   // Indented like the line it's about, so it reads as part of that line (an \item in a list, say).
   const indent = find ? lines[at]!.match(/^\s*/)![0] : "";
   lines.splice(at + 1, 0, indent + texComment(`${comment}${creditLine ? ` (${creditLine})` : ""}`));
-  return { text: lines.join("\n"), where: s?.title ?? "the document", added: comment };
+  // Say exactly where the "% [Scribe]" line went: it's in the source only, never in the PDF or Overleaf's comment panel.
+  const line = `line ${at + 2}`;
+  const where = s ? `${s.title}, ${line}` : find ? line : `${line}, right after \\begin{document}`;
+  return { text: lines.join("\n"), where, added: comment };
+}
+
+/**
+ * The text a real Overleaf comment anchors to: the words it's about (found like commentOn finds them),
+ * else the section's heading line, else the first line of the document's body. Character offsets.
+ */
+export function commentRange(text: string, section: string | null, find: string | null): { from: number; to: number; line: number; where: string } {
+  const lines = text.split("\n");
+  const s = findSection(text, section);
+  const from = s ? s.line + 1 : bodyStart(lines);
+  const to = s ? s.end : lines.length;
+  const offset = (i: number) => lines.slice(0, i).reduce((n, l) => n + l.length + 1, 0);
+  if (find) {
+    for (const needle of [...new Set([find, escapeTex(find)])]) {
+      for (let i = from; i < to; i++) {
+        if (/^\s*%/.test(lines[i]!)) continue;
+        const at = lines[i]!.toLowerCase().indexOf(needle.toLowerCase());
+        if (at >= 0) return { from: offset(i) + at, to: offset(i) + at + needle.length, line: i + 1, where: s ? `${s.title}, line ${i + 1}` : `line ${i + 1}` };
+      }
+    }
+    throw new Error(`Couldn’t find “${find}”${s ? ` in ${s.title}` : ""}.`);
+  }
+  let i = s ? s.line : from;
+  while (i < lines.length - 1 && !lines[i]!.trim()) i++;
+  const lead = lines[i]!.length - lines[i]!.trimStart().length;
+  return { from: offset(i) + lead, to: offset(i) + lines[i]!.trimEnd().length, line: i + 1, where: s ? `${s.title}, line ${i + 1}` : `line ${i + 1}` };
 }
 
 /** A "% [Scribe]" line at the end of a section, or of the document (before \bibliography and \end{document}). */
@@ -174,6 +203,36 @@ export function appendComment(text: string, section: string | null, comment: str
   const at = lastContent(lines, s ? s.line + 1 : bodyStart(lines), end);
   lines.splice(at, 0, texComment(comment));
   return { text: lines.join("\n"), where: s?.title ?? "the document", added: comment };
+}
+
+const WORDS = /[\p{L}\p{N}]+/gu;
+const wordsOf = (s: string) => (s.toLowerCase().match(WORDS) ?? []).filter((w) => w.length >= 3);
+
+/**
+ * The source line a line of the PDF came from: the body line sharing most of its words. LaTeX commands
+ * are dropped, a word hyphenated at the end of the PDF line is left out, and partial words count
+ * ("ap-prove"). Null when no line shares at least half.
+ */
+export function matchSourceLine(source: string, pdfText: string): { line: number; text: string } | null {
+  const lines = source.split("\n");
+  const want = wordsOf(pdfText.replace(/\S+-$/, ""));
+  if (!want.length) return null;
+  let best = { at: -1, score: 0 };
+  for (let i = bodyStart(lines); i < lines.length; i++) {
+    const l = lines[i]!;
+    if (!l.trim() || /^\s*%/.test(l) || END_DOC.test(l)) continue;
+    const have = wordsOf(l.replace(/\\[a-zA-Z]+\*?/g, " "));
+    const hit = want.filter((w) => have.includes(w) || (w.length >= 4 && have.some((h) => h.length >= 4 && (h.includes(w) || w.includes(h))))).length;
+    const score = hit / want.length;
+    if (score > best.score) best = { at: i, score };
+  }
+  return best.score >= 0.5 ? { line: best.at + 1, text: lines[best.at]! } : null;
+}
+
+/** "line 12" or "source line 12" in a request. Meet often writes "line 12" as "online 12" or "blind 12". */
+export function lineReference(command: string): { n: number; source: boolean } | null {
+  const m = /\b(source\s+(?:code\s+)?)?(?:line|online|blind)\s+(?:number\s+)?(\d{1,4})\b/i.exec(command);
+  return m ? { n: Number(m[2]), source: Boolean(m[1]) } : null;
 }
 
 /** The document for the model: section titles and the body, without the preamble. */

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Context, Intent } from '../ai/agent';
-import { Engine, type EngineDeps, type Entry } from '../engine';
+import { Engine, looksLikeAnswer, type EngineDeps, type Entry } from '../engine';
 import type { FileRef } from '../files';
 import type { MeetState } from '../messages';
 import { DEFAULT_SETTINGS, type Settings } from '../settings';
@@ -417,5 +417,112 @@ describe('the AI log, from the engine', () => {
     expect(call && 'ms' in call && call.ms).toBeGreaterThanOrEqual(0);
     expect(events.filter((e) => e.t === 'outcome').map((e) => (e as { kind: string }).kind)).toEqual(['proposal', 'written']);
     expect(events.find((e) => e.t === 'feedback')).toMatchObject({ action: 'approve', entry: id });
+  });
+});
+
+describe('a line number in a request about a paper', () => {
+  const TEX: FileRef = { id: 'overleaf:paper', kind: 'tex', title: 'Paper' };
+  const texTarget = (hit: Awaited<ReturnType<NonNullable<Target['lineRef']>>>, applied: WriteIntent[]): Target => ({
+    describe: async () => ({ title: 'Paper', text: 'Section titles: Introduction', parts: ['Introduction'] }),
+    apply: async (_f, w) => {
+      applied.push(w);
+      return { where: 'line 7', add: w.text ?? '', status: 'commented', suggestionIds: [] };
+    },
+    lineRef: async () => hit,
+  });
+
+  it('anchors a comment under the source line of PDF line 12, and tells the model what it says', async () => {
+    const applied: WriteIntent[] = [];
+    const t = setup({ files: [TEX] });
+    t.deps.targets.tex = texTarget({ label: 'line 12 of the PDF', pdfText: 'tools let a helper ap-', line: 6, text: 'In their auto modes, the counting tools let a helper approve each visit.' }, applied);
+    t.intents.push(intent({ action: 'comment', text: 'Their auto mode should be removed' }));
+    t.engine.addLine('Simon', 'Scribe, for line 12, make a comment: their auto mode should be removed.', T0);
+    await t.engine.idle();
+    expect(t.contexts[0]!.lineHint).toMatch(/line 12 of the PDF in “Paper”, which reads: “tools let a helper ap-”, It is source line 6/);
+    expect(applied[0]!.find).toBe('In their auto modes, the counting tools let a helper approve each visit.');
+  });
+
+  it('says so, instead of commenting somewhere else, when the line isn’t in the PDF preview', async () => {
+    const applied: WriteIntent[] = [];
+    const t = setup({ files: [TEX] });
+    t.deps.targets.tex = texTarget(null, applied);
+    t.intents.push(intent({ action: 'comment', text: 'Cut this' }));
+    t.engine.addLine('Simon', 'Scribe, comment on line 400: cut this.', T0);
+    await t.engine.idle();
+    expect(applied).toEqual([]);
+    expect(t.entries()[0]!.action).toMatchObject({ kind: 'error', message: expect.stringMatching(/Couldn’t find line 400 in the PDF preview of “Paper”/) });
+  });
+});
+
+describe('a spoken answer to Scribe’s question', () => {
+  const TEX: FileRef = { id: 'overleaf:paper', kind: 'tex', title: 'Paper' };
+  const tex = (applied: WriteIntent[], seen: number[]): Target => ({
+    describe: async () => ({ title: 'Paper', text: 'Section titles: Introduction', parts: ['Introduction'] }),
+    apply: async (_f, w) => {
+      applied.push(w);
+      return { where: 'line 22', add: w.text ?? '', status: 'commented', suggestionIds: [] };
+    },
+    lineRef: async (_f, ref) => {
+      seen.push(ref.n);
+      return { label: `line ${ref.n} of the editor`, line: ref.n, text: `Text on line ${ref.n}.` };
+    },
+  });
+
+  it('“Which line?” … “Blind 21.”: the reply answers it, and its line number wins', async () => {
+    const applied: WriteIntent[] = [];
+    const seen: number[] = [];
+    const t = setup({ files: [TEX], listenMode: 'smart' });
+    t.deps.targets.tex = tex(applied, seen);
+    t.intents.push(intent({ action: 'clarify', clarifyQuestion: 'Which line should I comment on?', options: ['Line 21', 'Line 23'] }));
+    t.intents.push(intent({ action: 'comment', text: 'Delete it later' }));
+    t.engine.addLine('Simon', 'Scribe, on line 23, can you add a comment to delete it later?', T0);
+    await t.engine.idle();
+    expect(t.entries()[0]!.action.kind).toBe('clarify');
+    t.engine.addLine('Simon', 'Blind 21.', T0 + 5000);
+    await t.engine.idle();
+    await t.engine.idle();
+    const calls = vi.mocked(t.deps.ai.parseCommand).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[1]![1]).toMatchObject({ clarification: 'Blind 21.' });
+    expect(seen.at(-1)).toBe(21);
+    expect(applied[0]!.find).toBe('Text on line 21.');
+    expect(t.entries()[1]!.action.kind).toBe('skipped');
+  });
+
+  it('a long unrelated line isn’t taken as the answer', async () => {
+    const t = setup({ files: [TEX] });
+    t.deps.targets.tex = tex([], []);
+    t.intents.push(intent({ action: 'clarify', clarifyQuestion: 'Which line?', options: ['Line 21'] }));
+    t.engine.addLine('Simon', 'Scribe, comment on line 23: cut this.', T0);
+    await t.engine.idle();
+    t.engine.addLine('Simon', 'Anyway, we should also talk about the budget for the spring pilot.', T0 + 5000);
+    await t.engine.idle();
+    expect(vi.mocked(t.deps.ai.parseCommand).mock.calls).toHaveLength(1);
+  });
+});
+
+describe('what counts as an answer to Scribe’s question', () => {
+  it('a choice, a line number, or a pick, never a new request', () => {
+    const q = 'Which line should I comment on?';
+    expect(looksLikeAnswer('Blind 21.', q, ['Line 21', 'Line 23'], 'comment on line 23')).toBe(true);
+    expect(looksLikeAnswer('The tomato bed', 'Which one?', ['Tomato bed', 'Herb bed'], 'comment on the bed line')).toBe(true);
+    expect(looksLikeAnswer('the first one', 'Which one?', ['A', 'B'], 'move it')).toBe(true);
+    expect(looksLikeAnswer("add to decisions: we're using Postgres 16.", 'Which date?', ['Launch date: December 1', 'Beta: November 20'], 'move it to the 15th')).toBe(false);
+    expect(looksLikeAnswer('Can everyone hear me?', 'Which date?', ['Launch date: December 1'], 'move it')).toBe(false);
+  });
+
+  it('after a question, the same person’s next request still runs as a request', async () => {
+    const t = setup();
+    t.intents.push(intent({ action: 'clarify', clarifyQuestion: 'Which date should move?', options: ['Launch date: December 1', 'Beta: November 20'] }));
+    t.intents.push(intent({ action: 'append', section: 'Decisions', text: 'Use Postgres 16' }));
+    t.engine.addLine('Simon', 'Scribe, move it to the fifteenth.', T0);
+    await t.engine.idle();
+    t.engine.addLine('Simon', "Scribe, add to decisions: we're using Postgres 16.", T0 + 3000);
+    await t.engine.idle();
+    const calls = vi.mocked(t.deps.ai.parseCommand).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[1]![1]).toMatchObject({ command: "add to decisions: we're using Postgres 16." });
+    expect(calls[1]![1]).not.toHaveProperty('clarification', expect.anything());
+    expect(t.entries()[1]!.action.kind).toBe('written');
   });
 });

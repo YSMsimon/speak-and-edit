@@ -228,6 +228,7 @@ Rules:
 - For comment: "text" is only what the comment should say, cleaned up and short ("…and comment it to delete this later" → "Delete this later"; "add a comment saying okay, thank you" → "Okay, thank you"). Never put the request itself in "text". "find" is the line or words the comment is about, copied from the file as closely as you can: the captions may have misheard a few words, so pick the file's line that matches best. If no line is named, "find" is null.
 - Requests about Scribe itself use control, with only the asked-for settings filled and the rest null: switching mode ("switch to smart mode", "only listen for commands"; "record everything", "write everything down" and "transcribe the meeting" mean mode record), the file to work on ("work on the tracker", "use any file"), auto or ask before writing ("make the edits directly" is auto, "let me approve changes first" is ask), pausing or resuming listening ("stop listening", "pause"), and the video recording ("start recording the call", "pause the recording", "stop recording"). Use recording only when they speak of the video or "the recording"; never start one for "record everything".
 - If the line isn't a request about the files or Scribe, use none.
+- "Line in the request" tells you what a line number someone said ("line 12") points at in a paper. Copy "find" from that source line, word for word, and use that line's file.
 - "Earlier in the meeting" holds older lines and Scribe's summary. Use it only when the request points back to something said before ("what Priya said about the budget", "the date we agreed on earlier"). Take facts from the exact lines when they are there, not from the summary.
 - Shared screen: when someone is sharing their screen and the request points at it ("this table", "what's on screen", "these numbers"), set screen to read and say where it goes (file, section); leave text empty, it is read from the screen later. When they want a picture of it ("screenshot this", "save this slide", "put this in the deck"), use append with screen image. Otherwise screen is none.
 
@@ -267,6 +268,8 @@ export interface Context {
   /** All connected files, described for the model. */
   outline: string;
   recent: string[]; // last few lines, "Name: text"
+  /** What "line 12" in the request points at, read from the paper's PDF or source. */
+  lineHint?: string;
   /** Older lines and the meeting summary, picked to fit the model's budget (ai/context.ts). */
   earlier?: string;
   /** "Priya is sharing their screen." when someone is. */
@@ -293,6 +296,7 @@ export async function parseCommand(
 ): Promise<{ intent: Intent; usage: Usage }> {
   const prompt = [
     `Files:\n${ctx.outline}`,
+    ctx.lineHint ? `Line in the request: ${ctx.lineHint}` : "",
     ctx.earlier ? `Earlier in the meeting:\n${ctx.earlier}` : "",
     ctx.recent.length ? `Recent lines:\n${ctx.recent.join("\n")}` : "",
     ctx.screen ?? "Nobody is sharing their screen.",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { FileRef } from '../files';
-import { appendComment, appendTo, commentOn, replaceIn } from '../latex/tex';
-import type { PageWrite } from '../overleaf/page';
+import { appendComment, appendTo, commentOn, commentRange, replaceIn } from '../latex/tex';
+import type { PageComment, PageWrite } from '../overleaf/page';
 import { parseOverleafUrl, overleafTitle } from '../overleaf/tab';
 import { overleafTarget, type OverleafIO } from '../targets/overleaf';
 import type { ApplyOptions, WriteIntent } from '../targets/types';
@@ -162,3 +162,94 @@ describe('LaTeX helpers added for Overleaf', () => {
     expect(replaceIn(PAPER, null, '30%', '31%').removed).toBe('30\\%');
   });
 });
+
+describe('"line 12" in an Overleaf project', () => {
+  const FILE: FileRef = { id: 'overleaf:test', kind: 'tex', title: 'Paper' };
+  const SRC = ['\\documentclass{article}', '\\begin{document}', '\\section{Introduction}', 'Bees visit some flowers more than others.', '\\end{document}'].join('\n');
+  const io = (pdfLine?: OverleafIO['pdfLine']): OverleafIO => ({
+    read: async () => ({ text: SRC, file: 'main.tex', tabId: 1 }),
+    write: async () => ({ ok: true }) as PageWrite,
+    ...(pdfLine ? { pdfLine } : {}),
+  });
+
+  it('uses the PDF line and finds its source line', async () => {
+    const hit = await overleafTarget(io(async () => ({ text: 'Bees visit some flowers more than others.', page: 1 }))).lineRef!(FILE, { n: 12, source: false });
+    expect(hit).toEqual({ label: 'line 12 of the PDF', pdfText: 'Bees visit some flowers more than others.', line: 4, text: 'Bees visit some flowers more than others.' });
+  });
+
+  it('means the editor’s line when the PDF has no line numbers, or isn’t open', async () => {
+    expect(await overleafTarget(io(async () => ({ numbered: false }))).lineRef!(FILE, { n: 4, source: false })).toMatchObject({ line: 4, text: 'Bees visit some flowers more than others.' });
+    expect(await overleafTarget(io()).lineRef!(FILE, { n: 3, source: false })).toMatchObject({ line: 3, text: '\\section{Introduction}' });
+  });
+
+  it('says not found when the PDF is numbered but doesn’t show that line', async () => {
+    expect(await overleafTarget(io(async () => null)).lineRef!(FILE, { n: 400, source: false })).toBeNull();
+  });
+});
+
+describe('real Overleaf comments', () => {
+  it('anchors on the words, else the section heading, with the line', () => {
+    const r = commentRange(PAPER, null, 'flowers more');
+    expect(PAPER.slice(r.from, r.to)).toBe('flowers more');
+    expect(r).toMatchObject({ line: 5, where: 'line 5' });
+    const h = commentRange(PAPER, 'Results', null);
+    expect(PAPER.slice(h.from, h.to)).toBe('\\section{Results}');
+    expect(h.where).toBe('Results, line 7');
+    expect(commentRange(PAPER, null, '30%').line).toBe(8);
+    expect(() => commentRange(PAPER, null, 'butterflies')).toThrow(/Couldn’t find/);
+  });
+
+  it('posts through Overleaf’s comment box, with the credit, and leaves the text alone', async () => {
+    const { page } = fakePage();
+    const posted: { range: { from: number; to: number }; text: string }[] = [];
+    const io: OverleafIO = {
+      read: async () => ({ text: page.text, file: 'main.tex', tabId: 7 }),
+      write: async () => {
+        throw new Error('no text change expected');
+      },
+      comment: async (_tab, _file, before, range, text): Promise<PageComment> => {
+        expect(before).toBe(page.text);
+        posted.push({ range, text });
+        return { ok: true };
+      },
+    };
+    const out = await overleafTarget(io).apply(FILE, intent({ action: 'comment', find: 'flowers more', text: 'Which flowers?' }), DIRECT);
+    expect(out).toMatchObject({ status: 'commented', where: 'line 5', add: 'Which flowers?' });
+    expect(PAPER.slice(posted[0]!.range.from, posted[0]!.range.to)).toBe('flowers more');
+    expect(posted[0]!.text).toBe('Which flowers? — Priya, 14:02: “add that”');
+  });
+
+  it('falls back to a % [Scribe] line, and says so, when the comment box won’t open', async () => {
+    const { page, target: _t } = fakePage();
+    const io: OverleafIO = {
+      read: async () => ({ text: page.text, file: 'main.tex', tabId: 7 }),
+      write: async (_tab, _f, before, change): Promise<PageWrite> => {
+        if (before !== page.text) return { ok: false, reason: 'changed' };
+        page.text = page.text.slice(0, change.from) + change.insert + page.text.slice(change.to);
+        return { ok: true };
+      },
+      comment: async (): Promise<PageComment> => ({ ok: false, reason: 'no-box' }),
+    };
+    const out = await overleafTarget(io).apply(FILE, intent({ action: 'comment', find: 'flowers more', text: 'Which flowers?' }), DIRECT);
+    expect(out.warning).toMatch(/comment box didn’t open/);
+    expect(page.text).toMatch(/flowers more than others\.\n% \[Scribe\] Which flowers\?/);
+  });
+
+  it('tries again when the Overleaf page reloads mid-comment', async () => {
+    let calls = 0;
+    const io: OverleafIO = {
+      read: async () => ({ text: PAPER, file: 'main.tex', tabId: 7 }),
+      write: async () => ({ ok: true }) as PageWrite,
+      comment: async (): Promise<PageComment> => {
+        calls++;
+        if (calls === 1) throw new Error('Frame with ID 0 was removed.');
+        return { ok: true };
+      },
+    };
+    const out = await overleafTarget(io).apply(FILE, intent({ action: 'comment', find: 'flowers more', text: 'Which flowers?' }), DIRECT);
+    expect(out.status).toBe('commented');
+    expect(out.warning).toBeUndefined();
+    expect(calls).toBe(2);
+  });
+});
+

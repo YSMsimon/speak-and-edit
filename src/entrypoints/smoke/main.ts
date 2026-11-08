@@ -21,7 +21,7 @@ import { docsTarget } from "@/lib/targets/docs";
 import { sheetsTarget } from "@/lib/targets/sheets";
 import { slidesTarget } from "@/lib/targets/slides";
 import { overleafTarget } from "@/lib/targets/overleaf";
-import { readProject, writeProject } from "@/lib/overleaf/tab";
+import { commentProject, projectCommentsText, readPdfLine, readProject, writeProject } from "@/lib/overleaf/tab";
 import { diffOne } from "@/lib/latex/tex";
 import tablePng from "./shared-table.png?inline";
 
@@ -348,7 +348,7 @@ async function run() {
   const notes = notesTarget({ root: async () => vault });
   const deps: EngineDeps = {
     settings: () => settings,
-    targets: { doc: docs, sheet: sheetsTarget(googleFetch), slides: slidesTarget(googleFetch), note: notes, tex: overleafTarget({ read: readProject, write: writeProject }) },
+    targets: { doc: docs, sheet: sheetsTarget(googleFetch), slides: slidesTarget(googleFetch), note: notes, tex: overleafTarget({ read: readProject, write: writeProject, pdfLine: readPdfLine, comment: commentProject }) },
     appendTranscript: (f, lines) => (f.kind === "note" ? notes.appendTranscript(f, lines) : docs.appendTranscript(f, lines)),
     model: modelFor,
     visionModel: visionModelFor,
@@ -925,10 +925,15 @@ The pilot reached 30\% accuracy.
       expect(/35\\%/.test(r) && !/30\\%/.test(r), `Results: ${r.slice(0, 240)}`);
       return describe(e);
     });
-    await check("J3", "comment on a line: a % [Scribe] line under it", async () => {
+    /** The comments in the project's review panel. */
+    const commentsText = async (near: string) => projectCommentsText((await readProject(PROJECT)).tabId, near);
+    await check("J3", "comment on a line: a real Overleaf comment, the source unchanged", async () => {
+      const before = await texText();
       const e = await say("Scribe, comment on the tomato bed line: add the pepper bed too.");
-      expect(written(e).result.status === "commented", describe(e));
-      expect(/Tomato bed\n\s*% \[Scribe\][^\n]*pepper bed/i.test(await texText()), "no comment line under the tomato bed line");
+      const w = written(e);
+      expect(w.result.status === "commented" && !w.warning, describe(e));
+      expect(/pepper bed/i.test(await commentsText("Tomato bed")), "no comment about the pepper bed in Overleaf's review panel");
+      expect((await texText()) === before, "the source changed");
       return describe(e);
     });
     await check("J4", "add to a section that ends in a list: a new \\item", async () => {
@@ -954,16 +959,13 @@ The pilot reached 30\% accuracy.
       expect(/three seeds|3 seeds/i.test((await texText()).replace(/^\s*%.*$/gm, "")), "decision not in the project");
       return describe(e);
     });
-    /** The source without its comment lines, whole lines removed. */
-    const noComments = (t: string) => t.split("\n").filter((l) => !/^\s*%/.test(l)).join("\n");
     reset({ files: [TEX], commentsOnly: true });
-    await check("J7", "Comments only: a Proposed comment line, the text unchanged", async () => {
-      const before = noComments(await texText());
+    await check("J7", "Comments only: a real Proposed comment, the text unchanged", async () => {
+      const before = await texText();
       const e = await say("Scribe, add to the introduction: we also count butterflies.");
       expect(written(e).result.status === "commented", describe(e));
-      const t = await texText();
-      expect(/^\s*% \[Scribe\] Proposed:[^\n]*butterflies/im.test(t), "no Proposed comment line");
-      expect(noComments(t) === before, "the text changed");
+      expect(/Proposed:[^\n]*butterflies/i.test(await commentsText("\\section{Introduction}")), "no Proposed comment in Overleaf's review panel");
+      expect((await texText()) === before, "the text changed");
     });
     await check("J8", "saved by Overleaf and still compiles to a PDF", async () => {
       await sleep(3000);

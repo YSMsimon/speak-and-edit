@@ -205,10 +205,11 @@ Open an Overleaf project with `\section{Results}` and a list somewhere (the "Scr
 |---|---|---|
 | ☐ 7c.1 | "Scribe, add to results: recall was 85% on the R&D tasks." | Under Results: `recall was 85\% on the R\&D tasks`, then a `% [Scribe] Simon, …` line. The PDF recompiles without errors. |
 | ☐ 7c.2 | "Scribe, in results, change 85% to 87%." | `85\%` becomes `87\%`. |
-| ☐ 7c.3 | "Scribe, comment on the recall line: rerun with three seeds." | A `% [Scribe] Rerun with three seeds …` line under it; nothing new in the PDF. |
+| ☐ 7c.3 | "Scribe, comment on the recall line: rerun with three seeds." | A real Overleaf comment on the recall line, in the review panel with your name: "Rerun with three seeds — Simon, …". The source and the PDF are unchanged. |
 | ☐ 7c.4 | "Scribe, add the herb bed to the method list." | A new `\item` for the herb bed inside the list, before `\end{itemize}`. |
 | ☐ 7c.5 | A co-author types in the project during 7c.1–7c.4. | Their typing and Scribe's edits both stay. |
 | ☐ 7c.6 | Close the Overleaf tab, then repeat 7c.1. | Scribe opens the project in a background tab and writes it. |
+| ☐ 7c.9 | With the test project's PDF showing margin line numbers, say "Scribe, comment on line 12: check this number." | A real comment on the source line that PDF line 12 comes from, and the card says which line. Without margin numbers, line 12 is the editor's line 12. |
 
 ## 8. Shared screen (about 6 minutes)
 

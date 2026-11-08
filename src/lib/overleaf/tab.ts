@@ -1,7 +1,7 @@
 // Reaching an Overleaf project: through the project's tab in this Chrome, where the user is already signed
 // in. Nothing is sent to Overleaf by Scribe itself; the page saves the change like any typing.
 // Needs the "scripting" permission and Chrome's OK for https://www.overleaf.com/* (asked on Add).
-import { pageRead, pageWrite, type PageDoc, type PageWrite } from "./page";
+import { pageRead, pageWrite, type PageDoc, type PageWrite, pagePdfLine, type PdfLine, type PdfUnnumbered, pageComment, pageCommentsText, type PageComment } from "./page";
 
 export const OVERLEAF_ORIGIN = "https://www.overleaf.com/*";
 
@@ -73,6 +73,21 @@ export async function readProject(projectId: string): Promise<PageDoc & { tabId:
     await wait(500);
   }
   throw new Error("The Overleaf project didn’t open in time. Check the tab, then try again.");
+}
+
+/** The text on line n of the project's PDF preview (its margin numbers), or null. */
+export async function readPdfLine(tabId: number, n: number): Promise<PdfLine | PdfUnnumbered | null> {
+  return run(tabId, pagePdfLine, [n]);
+}
+
+/** A real Overleaf comment on [from, to) of the open file, through Overleaf's comment box. */
+export async function commentProject(tabId: number, file: string, before: string, range: { from: number; to: number }, text: string): Promise<PageComment> {
+  return run(tabId, pageComment, [file, before, range, text]);
+}
+
+/** The text of the comments in the project's review panel. */
+export async function projectCommentsText(tabId: number, near?: string): Promise<string> {
+  return run(tabId, pageCommentsText, near ? [near] : []);
 }
 
 export async function writeProject(tabId: number, file: string, before: string, change: { from: number; to: number; insert: string }): Promise<PageWrite> {

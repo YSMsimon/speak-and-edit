@@ -78,6 +78,18 @@ export interface Target {
    * (Docs and Slides can only copy a picture from one); null means link to it instead.
    */
   insertMedia?(file: FileRef, m: MediaInput, w: WriteIntent, o: ApplyOptions, publicUrls: string[] | null): Promise<ApplyResult>;
+  /** "Line 12" in a request: what's on that line, by the PDF's margin numbers or ("source line 12") the source. Overleaf only. */
+  lineRef?(file: FileRef, ref: { n: number; source: boolean }): Promise<LineHit | null>;
+}
+
+export interface LineHit {
+  /** "line 12 of the PDF" or "source line 12". */
+  label: string;
+  /** What the PDF shows on that line, when it came from the PDF. */
+  pdfText?: string;
+  /** The source line it is (1-based) and its text, when found. */
+  line?: number;
+  text?: string;
 }
 
 export const squash = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
