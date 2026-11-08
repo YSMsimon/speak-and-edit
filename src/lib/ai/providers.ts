@@ -12,6 +12,7 @@ import type { AiModel, Reasoning } from "./agent";
 import { chatgptAccount, chatgptFetch } from "./chatgpt";
 
 import type { ProviderChoice, ProviderId, Settings } from "../settings";
+import { FULL } from "../edition";
 
 export const PROVIDER_LABEL: Record<ProviderId, string> = {
   chrome: "Built into the browser",
@@ -160,20 +161,28 @@ export function ollamaFetch(baseUrl: string, inner: typeof fetch = fetch): typeo
 }
 
 function languageModelFor(id: ProviderId, s: Settings): LanguageModel {
-  const model = s.models[id];
-  const key = s.keys[id] ?? "";
   switch (id) {
     case "chrome":
       return browserAI("text");
+    case "chatgpt":
+      // The plan's token replaces an API key; chatgptFetch adds it and shapes each request.
+      return createOpenAI({ apiKey: "chatgpt-plan", fetch: chatgptFetch }).responses(s.models.chatgpt);
+  }
+  // Ollama and the API-key providers are in the full edition only; public builds leave this code out.
+  if (FULL) return fullEditionModel(id, s);
+  throw new Error(`${PROVIDER_LABEL[id]} isn’t in this version of Speak and Edit.`);
+}
+
+function fullEditionModel(id: Exclude<ProviderId, "chrome" | "chatgpt">, s: Settings): LanguageModel {
+  const model = s.models[id];
+  const key = s.keys[id] ?? "";
+  switch (id) {
     case "ollama":
       return createOpenAICompatible({
         name: "ollama",
         baseURL: `${s.ollamaUrl.replace(/\/+$/, "")}/v1`,
         fetch: ollamaFetch(s.ollamaUrl),
       }).chatModel(model);
-    case "chatgpt":
-      // The plan's token replaces an API key; chatgptFetch adds it and shapes each request.
-      return createOpenAI({ apiKey: "chatgpt-plan", fetch: chatgptFetch }).responses(model);
     case "openrouter":
       return createOpenAICompatible({ name: "openrouter", baseURL: "https://openrouter.ai/api/v1", apiKey: key, headers: { "X-Title": "Scribe" } }).chatModel(model);
     case "groq":
@@ -234,7 +243,7 @@ export async function checkChatGpt(s: Settings): Promise<Availability> {
 
 export async function checkProvider(id: ProviderId, s: Settings): Promise<Availability> {
   if (id === "chrome") return checkChrome();
-  if (id === "ollama") return checkOllama(s);
+  if (FULL && id === "ollama") return checkOllama(s);
   if (id === "chatgpt") return checkChatGpt(s);
   if (!s.keys[id]) return { ok: false, detail: id === "openrouter" ? "Not connected yet." : "No key added yet." };
   if (!(await ensureAccess(id, false))) return { ok: false, detail: `Scribe needs permission to reach ${PROVIDER_LABEL[id]}.` };

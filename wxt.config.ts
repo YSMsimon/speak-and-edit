@@ -14,6 +14,13 @@ const GOOGLE_CLIENT_ID = env.WXT_GOOGLE_CLIENT_ID ?? '';
 const KEY_FILE = '.keys/public-key.b64';
 const publicKey = existsSync(KEY_FILE) ? readFileSync(KEY_FILE, 'utf8').trim() : undefined;
 
+// Two editions from one codebase (README › Editions).
+// Public, the default: what the Chrome Web Store and GitHub releases get. Google Meet → Google Docs,
+// Sheets and Slides, with Sign in with ChatGPT or Chrome's built-in model.
+// Full (SCRIBE_FULL=1): also Obsidian, Overleaf, Ollama and API keys. Smoke builds and the tests are
+// always full; screenshot builds are public unless SCRIBE_FULL is set.
+const FULL = Boolean(process.env.SCRIBE_FULL || (process.env.SCRIBE_SMOKE && !process.env.SCRIBE_SCREENS) || process.env.VITEST);
+
 export default defineConfig({
   srcDir: 'src',
   // Screenshot builds (scripts/screens.mjs) and release builds (scripts/release.sh) go elsewhere,
@@ -28,13 +35,15 @@ export default defineConfig({
   },
   manifest: {
     name: 'Speak and Edit',
-    description:
-      // At most 132 characters: the Chrome Web Store's limit.
-      'Say an edit in Google Meet and it lands in your Google Doc, Sheet, Slides, Obsidian note or Overleaf file, credited to the speaker.',
+    // At most 132 characters: the Chrome Web Store's limit.
+    description: FULL
+      ? 'Say an edit in Google Meet and it lands in your Google Doc, Sheet, Slides, Obsidian note or Overleaf file, credited to the speaker.'
+      : 'Say an edit in Google Meet and it lands in your Google Doc, Sheet or Slides, credited to whoever said it.',
     // Store builds (SCRIBE_STORE=1) leave the key out: the Web Store gives the extension its own ID.
     ...(publicKey && !process.env.SCRIBE_STORE ? { key: publicKey } : {}),
     // tabCapture + activeTab: record the Meet tab, only after a click.
-    // scripting: edit an Overleaf project through its open tab, only once Chrome allows overleaf.com (below).
+    // scripting: add the caption reader to a Meet tab that was open before Scribe was installed or updated;
+    // in the full edition, also edit an Overleaf project through its open tab, once Chrome allows overleaf.com.
     // alarms: smoke builds only, to check the local smoke server every 30 s.
     // unlimitedStorage: saved meetings (this computer only); no prompt, and no 10 MB limit for a long day of calls.
     permissions: ['sidePanel', 'storage', 'unlimitedStorage', 'identity', 'tabs', 'tabCapture', 'activeTab', 'scripting', ...(process.env.SCRIBE_SMOKE ? ['alarms'] : [])],
@@ -44,26 +53,35 @@ export default defineConfig({
       'https://sheets.googleapis.com/*',
       'https://slides.googleapis.com/*',
       'https://www.googleapis.com/*',
-      'http://localhost/*',
-      'http://127.0.0.1/*',
-      // Ollama's public list of its cloud models, for the model picker. Read only.
-      'https://ollama.com/*',
       // Sign in with ChatGPT: the sign-in and token service, and the API the plan pays for.
       'https://auth.openai.com/*',
       'https://api.openai.com/*',
+      ...(FULL
+        ? [
+            // Ollama on this computer.
+            'http://localhost/*',
+            'http://127.0.0.1/*',
+            // Ollama's public list of its cloud models, for the model picker. Read only.
+            'https://ollama.com/*',
+          ]
+        : []),
       // Smoke builds test Overleaf without a click to grant it; normal builds ask on Add (below).
       ...(process.env.SCRIBE_SMOKE ? ['https://www.overleaf.com/*'] : []),
     ],
-    // "Use your own API key" (v0.6): asked for one at a time, only when someone uses that service,
-    // so updating Scribe never asks everyone for new permissions.
-    optional_host_permissions: [
-      'https://openrouter.ai/*',
-      'https://api.anthropic.com/*',
-      'https://generativelanguage.googleapis.com/*',
-      'https://api.groq.com/*',
-      // Overleaf (v0.8): asked for when someone adds a project.
-      ...(process.env.SCRIBE_SMOKE ? [] : ['https://www.overleaf.com/*']),
-    ],
+    // Full edition only. "Use your own API key" (v0.6): asked for one at a time, only when someone uses
+    // that service, so updating Scribe never asks everyone for new permissions.
+    ...(FULL
+      ? {
+          optional_host_permissions: [
+            'https://openrouter.ai/*',
+            'https://api.anthropic.com/*',
+            'https://generativelanguage.googleapis.com/*',
+            'https://api.groq.com/*',
+            // Overleaf (v0.8): asked for when someone adds a project.
+            ...(process.env.SCRIBE_SMOKE ? [] : ['https://www.overleaf.com/*']),
+          ],
+        }
+      : {}),
     ...(GOOGLE_CLIENT_ID
       ? {
           oauth2: {
@@ -89,6 +107,8 @@ export default defineConfig({
       // Smoke builds only: reload on a new build and run the smoke test on request (scripts/smoke-server.mjs).
       __SCRIBE_SMOKE__: JSON.stringify(Boolean(process.env.SCRIBE_SMOKE)),
       __SCRIBE_SCREENS__: JSON.stringify(Boolean(process.env.SCRIBE_SCREENS)),
+      // The edition (above). Code behind `if (FULL)` is left out of public builds.
+      __SCRIBE_FULL__: JSON.stringify(FULL),
     },
     // Brand logos (Google Docs, Ollama, Zoom…) from Iconify sets, compiled in at build time. See THIRD_PARTY.md.
     plugins: [tailwindcss(), Icons({ compiler: 'jsx', jsx: 'react' })],

@@ -1,3 +1,5 @@
+import { FULL } from "./edition";
+
 // Every failure Scribe shows, turned into one shape: a short title, one line on what to do,
 // and the buttons that fix it. The raw message is kept for "Details".
 //
@@ -18,6 +20,7 @@ export type Fix =
   | "manage-usage"
   | "use-ollama"
   | "get-ollama"
+  | "use-builtin"
   | "google-signin"
   | "reload-meet";
 
@@ -30,6 +33,7 @@ export const FIX_LABEL: Record<Fix, string> = {
   "manage-usage": "Manage usage",
   "use-ollama": "Use Ollama",
   "get-ollama": "Get Ollama",
+  "use-builtin": "Use the built-in model",
   "google-signin": "Sign in to Google",
   "reload-meet": "Reload Meet",
 };
@@ -156,7 +160,7 @@ export function normalizeError(e: unknown): string {
 
 const textOf = (e: unknown) => (e instanceof Error ? e.message : typeof e === "string" ? e : String(e));
 
-export function describeProblem(e: unknown): Problem {
+export function describeProblem(e: unknown, full: boolean = FULL): Problem {
   const raw = textOf(e).trim();
   for (const rule of RULES) {
     if (!rule.test.test(raw)) continue;
@@ -164,7 +168,25 @@ export function describeProblem(e: unknown): Problem {
     // "Needs more detail" problems are best told in Scribe's own words.
     const body = p.body ?? (p.severity === "info" && rule.detail !== false ? raw : undefined);
     const showDetail = rule.detail !== false && body !== raw;
-    return { ...p, body, ...(showDetail ? { detail: raw } : {}) };
+    const problem: Problem = { ...p, body, ...(showDetail ? { detail: raw } : {}) };
+    return full ? problem : forPublic(problem);
   }
   return { severity: "error", title: "Couldn’t do that", body: raw || "Something went wrong.", fixes: [] };
+}
+
+/**
+ * The public edition has no Ollama and no API keys: the fallback is Chrome's built-in model, and when
+ * that's what failed, ChatGPT.
+ */
+function forPublic(p: Problem): Problem {
+  const builtInFailed = /built-in AI/.test(p.title);
+  const fixes = p.fixes
+    .filter((f) => f !== "get-ollama")
+    .map((f): Fix => (f === "use-ollama" ? (builtInFailed ? "chatgpt-signin" : "use-builtin") : f))
+    .filter((f, i, all) => all.indexOf(f) === i);
+  const body = p.body
+    ?.replace("Try it with Ollama instead.", "Try it with the built-in model instead.")
+    .replace("Use Ollama or ChatGPT instead.", "Sign in with ChatGPT instead.")
+    .replace("Add a key, or pick ChatGPT, Ollama or the built-in model.", "Sign in with ChatGPT, or use the built-in model.");
+  return { ...p, fixes, ...(body !== undefined ? { body } : {}) };
 }

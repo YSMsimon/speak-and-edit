@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { deleteAllMeetings, listMeetings } from "@/lib/sessions";
 import { interactionLog } from "./log";
 
+import { FULL } from "@/lib/edition";
 import { ObsidianSection } from "./ObsidianSection";
 import { OverleafSection } from "./OverleafSection";
 import { ProblemCard } from "./problem";
@@ -310,8 +311,9 @@ export function OutputsTab(props: { engine: Engine; state: EngineState; settings
 
         {problem && <ProblemCard onDismiss={() => setProblem(null)} onRetry={problem.retry} problem={problem.error} />}
 
-        <ObsidianSection connected={settings.files} meetingTitle={state.meet?.title ?? null} onAdd={addLocal} />
-        <OverleafSection connected={settings.files} onAdd={addLocal} />
+        {/* Full edition only (lib/edition.ts). */}
+        {FULL && <ObsidianSection connected={settings.files} meetingTitle={state.meet?.title ?? null} onAdd={addLocal} />}
+        {FULL && <OverleafSection connected={settings.files} onAdd={addLocal} />}
 
         {googleReady && (
           <GlassItem className="gap-3.5 px-4 py-3.5" glassVariant="subtle">

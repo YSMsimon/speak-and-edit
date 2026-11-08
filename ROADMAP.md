@@ -212,9 +212,12 @@ Built and tested on 2026-11-01 (a local MCP server with four read-only tools, an
 
 ## Before release
 
+**The public edition is Google-only (Simon, 2026-11-07).** The store and GitHub Releases get Google Meet → Google Docs, Sheets and Slides, with Sign in with ChatGPT or Chrome's built-in model. Obsidian, Overleaf, Ollama and API keys are switched off in that build, not deleted: they stay in the full edition (`SCRIBE_FULL=1`). See README › Editions.
+
 1. **Step 1:** narrower Google permissions (`drive.file` and the hosted picker).
 2. **Chrome Web Store listing:** privacy policy, screenshots, and a demo video.
 3. **Ask OpenAI** whether Sign in with ChatGPT is fine inside an extension: the sign-in is caught from the tab, and tokens are kept in extension storage.
+4. **A free sign-in for the public edition (open):** OpenRouter Connect is built (one-click, no key) but only in the full edition. Before it can join the public one: a live check with a real OpenRouter account, a free model as its default instead of `openrouter/auto`, and a model picker instead of the text field.
 
 ## Later, unscheduled
 

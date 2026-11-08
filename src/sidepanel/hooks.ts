@@ -14,6 +14,8 @@ import { commentProject, readPdfLine, readProject, writeProject } from "@/lib/ov
 import { loadVault, vaultAccess } from "@/lib/notes/vault";
 import { sheetsTarget } from "@/lib/targets/sheets";
 import { slidesTarget } from "@/lib/targets/slides";
+import type { Target } from "@/lib/targets/types";
+import { FULL } from "@/lib/edition";
 import type { CaptureReply, MeetState, MissedLine, ToMeet, ToPanel } from "@/lib/messages";
 import { injectMeetScript } from "@/lib/meet-script";
 import { interactionLog } from "./log";
@@ -60,6 +62,14 @@ const driveIO: DriveIO = {
   fetch: (input, init) => fetch(input, init),
 };
 
+/** A file type this edition leaves out. Settings drop such files, so this only guards. */
+function notInThisEdition(what: string): Target {
+  const fail = async (): Promise<never> => {
+    throw new Error(`${what} aren’t in this version of Speak and Edit.`);
+  };
+  return { describe: fail, apply: fail };
+}
+
 /** What the control tool can switch that lives outside the engine. App fills in the recorder. */
 export interface Controls {
   recording: (action: "start" | "stop" | "pause" | "resume") => Promise<string>;
@@ -79,19 +89,28 @@ export function useEngine(settingsRef: React.MutableRefObject<Settings>, update:
   const pauseRef = useRef<(paused: boolean) => Promise<void>>(async () => undefined);
   const engine = useMemo(() => {
     const docs = docsTarget({ fetchOutline, batchUpdate, isRevisionConflict });
-    const notes = notesTarget({
-      root: async () => {
-        const vault = await loadVault();
-        if (!vault) throw new Error("Choose your Obsidian vault folder in Outputs first.");
-        if (!(await vaultAccess(vault, false))) throw new Error("Chrome needs your OK to use the Obsidian vault again. Open Outputs › Obsidian and click Allow.");
-        return vault;
-      },
-    });
+    // Obsidian and Overleaf are in the full edition only; the public build leaves them out (lib/edition.ts).
+    const notes = FULL
+      ? notesTarget({
+          root: async () => {
+            const vault = await loadVault();
+            if (!vault) throw new Error("Choose your Obsidian vault folder in Outputs first.");
+            if (!(await vaultAccess(vault, false))) throw new Error("Chrome needs your OK to use the Obsidian vault again. Open Outputs › Obsidian and click Allow.");
+            return vault;
+          },
+        })
+      : null;
     let folder: string | null = null; // checked once per session
     return new Engine({
       settings: () => settingsRef.current,
-      targets: { doc: docs, sheet: sheetsTarget(googleFetch), slides: slidesTarget(googleFetch), note: notes, tex: overleafTarget({ read: readProject, write: writeProject, pdfLine: readPdfLine, comment: commentProject }) },
-      appendTranscript: (file, lines) => (file.kind === "note" ? notes.appendTranscript(file, lines) : docs.appendTranscript(file, lines)),
+      targets: {
+        doc: docs,
+        sheet: sheetsTarget(googleFetch),
+        slides: slidesTarget(googleFetch),
+        note: notes ?? notInThisEdition("Obsidian notes"),
+        tex: FULL ? overleafTarget({ read: readProject, write: writeProject, pdfLine: readPdfLine, comment: commentProject }) : notInThisEdition("Overleaf projects"),
+      },
+      appendTranscript: (file, lines) => (file.kind === "note" && notes ? notes.appendTranscript(file, lines) : docs.appendTranscript(file, lines)),
       model: modelFor,
       visionModel: visionModelFor,
       resolveProvider: cachedResolver(),

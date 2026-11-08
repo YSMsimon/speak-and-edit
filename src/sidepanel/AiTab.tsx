@@ -11,6 +11,7 @@ import { connectOpenRouter } from "@/lib/ai/openrouter";
 import { checkProvider, ensureAccess, isOllamaCloud, listOllamaCloudModels, listOllamaModels, modelFor, OLLAMA_CLOUD_MODELS, PROVIDER_LABEL, visionModelFor, visionModelName, type Availability, type OllamaModel } from "@/lib/ai/providers";
 import type { EngineState } from "@/lib/engine";
 import { ADVANCED_PROVIDERS, DEFAULT_SETTINGS, PROVIDER_IDS, type ProviderId, type Settings } from "@/lib/settings";
+import { FULL } from "@/lib/edition";
 import { ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/glasscn/ui/item";
 import { SelectItem, SelectValue } from "@/components/glasscn/ui/select";
 import { GlassBadge } from "@/components/glasscn/ui/glasscn/glass-badge";
@@ -92,7 +93,7 @@ export function AiTab(props: {
   // Opening the tab checks a shared-screen model Scribe wasn't tested with.
   const visionNow = visionModelName("ollama", settings);
   useEffect(() => {
-    if (!OLLAMA_CLOUD_MODELS.includes(visionNow)) void checkVision(visionNow);
+    if (FULL && !OLLAMA_CLOUD_MODELS.includes(visionNow)) void checkVision(visionNow);
     // Once per model, not on every settings change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visionNow]);
@@ -105,8 +106,10 @@ export function AiTab(props: {
     const out: Partial<Record<ProviderId, Availability>> = {};
     await Promise.all(PROVIDER_IDS.map(async (id) => (out[id] = await checkProvider(id, settings).catch((e) => ({ ok: false, detail: e instanceof Error ? e.message : String(e) })))));
     setStatus(out);
-    listOllamaModels(settings.ollamaUrl).then(setOllamaModels, () => setOllamaModels([]));
-    listOllamaCloudModels().then(setCloudModels, () => undefined);
+    if (FULL) {
+      listOllamaModels(settings.ollamaUrl).then(setOllamaModels, () => setOllamaModels([]));
+      listOllamaCloudModels().then(setCloudModels, () => undefined);
+    }
     // The sign-in can end on its own (a refresh token expires); keep the panel honest about it.
     if (settings.chatgptAccount !== null && !(await chatgptAccount())) update({ chatgptAccount: null });
   }, [settings, update]);
@@ -430,19 +433,21 @@ export function AiTab(props: {
         <SectionLabel>Your subscription</SectionLabel>
         {row("chatgpt")}
         <SectionLabel>Free</SectionLabel>
-        {(["ollama", "chrome"] as const).map(row)}
-        <Collapsible defaultOpen={ADVANCED_PROVIDERS.includes(settings.provider)}>
-          <CollapsibleTrigger asChild>
-            <button className="group flex w-full items-center gap-1 px-1 pt-1 font-medium text-foreground/80 text-sm uppercase tracking-wide" type="button">
-              Use your own API key
-              <ChevronDownIcon className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 flex flex-col gap-2">
-            <Hint>For developers and teams. Keys stay in this browser and go only to that service. Scribe asks Chrome for each service's permission when you first use it.</Hint>
-            {ADVANCED_PROVIDERS.map(row)}
-          </CollapsibleContent>
-        </Collapsible>
+        {FULL ? (["ollama", "chrome"] as const).map(row) : row("chrome")}
+        {FULL && (
+          <Collapsible defaultOpen={ADVANCED_PROVIDERS.includes(settings.provider)}>
+            <CollapsibleTrigger asChild>
+              <button className="group flex w-full items-center gap-1 px-1 pt-1 font-medium text-foreground/80 text-sm uppercase tracking-wide" type="button">
+                Use your own API key
+                <ChevronDownIcon className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 flex flex-col gap-2">
+              <Hint>For developers and teams. Keys stay in this browser and go only to that service. Scribe asks Chrome for each service's permission when you first use it.</Hint>
+              {ADVANCED_PROVIDERS.map(row)}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -465,28 +470,30 @@ export function AiTab(props: {
           </ItemMedia>
           <ItemContent className="min-w-0">
             <ItemTitle>Reads the shared screen</ItemTitle>
-            <ItemDescription className="truncate">One picture per request</ItemDescription>
+            <ItemDescription className={FULL ? "truncate" : "line-clamp-2"}>{FULL ? "One picture per request" : "One picture per request. ChatGPT and the built-in model see it themselves."}</ItemDescription>
           </ItemContent>
-          <div className="basis-full pt-1">
-            <GlassSelect
-              items={visionChoices.map((m) => ({ value: m, label: ollamaLabel(m) }))}
-              onValueChange={(v) => {
-                if (!v) return;
-                update({ visionModels: { ...settings.visionModels, ollama: String(v) } });
-                void checkVision(String(v));
-              }}
-              value={visionModelName("ollama", settings)}
-            >
-              <GlassSelectTrigger aria-label="Ollama model for the shared screen" className="h-11 w-full text-sm data-[size=default]:h-11">
-                <Logo className="size-5" name={modelLogo(visionModelName("ollama", settings))} />
-                <SelectValue />
-              </GlassSelectTrigger>
-              <GlassSelectContent className="max-h-96">{visionChoices.map(modelOption)}</GlassSelectContent>
-            </GlassSelect>
-            {visionCheck?.busy && <Hint className="px-0 pt-1">Checking this model…</Hint>}
-            {visionCheck?.error != null && <ProblemCard className="mt-2" onRetry={() => void checkVision(visionNow)} problem={visionCheck.error} />}
-            <Hint className="px-0 pt-1">Ollama uses this one. ChatGPT and the built-in model see pictures themselves. Screenshots and recordings don’t use the AI.</Hint>
-          </div>
+          {FULL && (
+            <div className="basis-full pt-1">
+              <GlassSelect
+                items={visionChoices.map((m) => ({ value: m, label: ollamaLabel(m) }))}
+                onValueChange={(v) => {
+                  if (!v) return;
+                  update({ visionModels: { ...settings.visionModels, ollama: String(v) } });
+                  void checkVision(String(v));
+                }}
+                value={visionModelName("ollama", settings)}
+              >
+                <GlassSelectTrigger aria-label="Ollama model for the shared screen" className="h-11 w-full text-sm data-[size=default]:h-11">
+                  <Logo className="size-5" name={modelLogo(visionModelName("ollama", settings))} />
+                  <SelectValue />
+                </GlassSelectTrigger>
+                <GlassSelectContent className="max-h-96">{visionChoices.map(modelOption)}</GlassSelectContent>
+              </GlassSelect>
+              {visionCheck?.busy && <Hint className="px-0 pt-1">Checking this model…</Hint>}
+              {visionCheck?.error != null && <ProblemCard className="mt-2" onRetry={() => void checkVision(visionNow)} problem={visionCheck.error} />}
+              <Hint className="px-0 pt-1">Ollama uses this one. ChatGPT and the built-in model see pictures themselves. Screenshots and recordings don’t use the AI.</Hint>
+            </div>
+          )}
         </GlassItem>
       </div>
 

@@ -94,6 +94,9 @@ export function App() {
           return void toast.success("Switched to Ollama");
         case "get-ollama":
           return open("https://ollama.com/download");
+        case "use-builtin":
+          update({ provider: "chrome" });
+          return void toast.success("Switched to the built-in model");
         case "google-signin":
           return void getGoogleToken(true).then(
             () => {

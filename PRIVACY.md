@@ -2,21 +2,20 @@
 
 Last updated: November 7, 2026
 
-Speak and Edit is a free, open-source Chrome extension (MIT licence, source at https://github.com/YSMsimon/speak-and-edit). It turns requests said in a Google Meet call into edits in your own files. There is no Speak and Edit server: the extension runs in your browser and talks only to the services listed below, the ones you choose to connect.
+Speak and Edit is a free, open-source Chrome extension (MIT licence, source at https://github.com/YSMsimon/speak-and-edit). It turns requests said in a Google Meet call into edits in your own Google Docs, Sheets and Slides. There is no Speak and Edit server: the extension runs in your browser and talks only to the services listed below, the ones you choose to connect.
 
 ## What it reads
 
 - **Google Meet captions.** While you're in a call, it reads the live captions Meet shows in your tab, with each speaker's name and photo. It doesn't record audio.
-- **The files you connect.** Google Docs, Sheets and Slides you add in Outputs, Obsidian notes in the vault folder you choose, and Overleaf projects open in your browser. It reads them to place edits in the right spot.
+- **The files you connect.** The Google Docs, Sheets and Slides you add in Outputs. It reads them to place edits in the right spot.
 - **The shared screen, when asked.** A still of the shared screen when someone asks for a screenshot or for what's on screen, and a recording of the Meet tab only when you press Record.
 - **Your Google name and photo**, so your own lines show your name instead of "You".
 
 ## Where it goes
 
-- **The AI you pick** in the AI model tab gets the request, recent lines of the meeting, and an outline of your connected files. That's one of: a model in Chrome itself (stays on your computer), Ollama (on your computer, or Ollama's cloud models), your ChatGPT plan, or a provider you add a key for (OpenAI, Anthropic, Google Gemini, Groq, OpenRouter). Their own privacy policies apply to what they receive.
-- **Your files** get the edits, comments and credit lines Scribe writes, through Google's APIs, Overleaf's editor in your tab, or the files in your Obsidian folder.
+- **The AI you pick** in the AI model tab gets the request, recent lines of the meeting, and an outline of your connected files. That's either the model built into Chrome (it stays on your computer) or your ChatGPT plan, through Sign in with ChatGPT. OpenAI's privacy policy applies to what it receives.
+- **Your files** get the edits, comments and credit lines Scribe writes, through Google's APIs.
 - **Your Google Drive** gets screenshots and recordings, in a "Scribe captures" folder. To insert a picture, Google Docs and Slides need a link: the picture is shared by link for a few seconds while Google copies it, then made private again.
-- **Ollama's public model list** (ollama.com) is read to show which cloud models exist. Nothing of yours is sent.
 
 Nothing is sent to the developer, sold, or used for advertising. There are no analytics.
 
@@ -28,6 +27,13 @@ Kept in Chrome's storage on this computer, never synced:
 - a log of the AI requests and their results, kept 30 days
 
 Outputs › Saved meetings › Delete removes the meetings and the log. Removing the extension removes everything it stored.
+
+## The full edition
+
+This policy covers the edition in the Chrome Web Store and on GitHub Releases. The full edition, which you build yourself from the source code, can also:
+- read and edit Obsidian notes in the vault folder you choose, and Overleaf projects open in your browser, through Overleaf's own editor in your tab;
+- send the AI request to Ollama (on your computer, or Ollama's cloud models), or to a provider you add a key for: OpenAI, Anthropic, Google Gemini, Groq or OpenRouter. Their own privacy policies apply to what they receive;
+- read Ollama's public model list (ollama.com) to show which cloud models exist. Nothing of yours is sent.
 
 ## Google user data
 

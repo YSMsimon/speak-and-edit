@@ -1,16 +1,34 @@
 // Settings live in chrome.storage.local: on this computer only, never synced.
 
-import type { FileRef } from "./files";
+import { FULL } from "./edition";
+import type { FileKind, FileRef } from "./files";
 import type { LandAs } from "./targets/types";
 
 /**
  * Up front, with no API keys: the browser's built-in model, Ollama, or the user's own ChatGPT plan.
  * Under "Use your own API key" (v0.6): OpenRouter (one-click Connect) and keys for OpenAI, Anthropic, Gemini, Groq.
+ * The public edition offers only ChatGPT and the built-in model (see lib/edition.ts).
  */
 export type ProviderId = "chrome" | "ollama" | "chatgpt" | "openrouter" | "anthropic" | "openai" | "gemini" | "groq";
-export const BASIC_PROVIDERS: ProviderId[] = ["chrome", "ollama", "chatgpt"];
-export const ADVANCED_PROVIDERS: ProviderId[] = ["openrouter", "anthropic", "openai", "gemini", "groq"];
-export const PROVIDER_IDS: ProviderId[] = [...BASIC_PROVIDERS, ...ADVANCED_PROVIDERS];
+
+/** The models each edition offers: basic ones up front, and the API-key ones (full edition only). */
+export function providersFor(full: boolean): { basic: ProviderId[]; advanced: ProviderId[] } {
+  return full
+    ? { basic: ["chrome", "ollama", "chatgpt"], advanced: ["openrouter", "anthropic", "openai", "gemini", "groq"] }
+    : { basic: ["chrome", "chatgpt"], advanced: [] };
+}
+/** The file types each edition can edit. Public: Google Docs, Sheets and Slides. */
+export function fileKindsFor(full: boolean): FileKind[] {
+  return full ? ["doc", "sheet", "slides", "note", "tex"] : ["doc", "sheet", "slides"];
+}
+const allProviders = (full: boolean) => {
+  const p = providersFor(full);
+  return [...p.basic, ...p.advanced];
+};
+export const BASIC_PROVIDERS: ProviderId[] = providersFor(FULL).basic;
+export const ADVANCED_PROVIDERS: ProviderId[] = providersFor(FULL).advanced;
+export const PROVIDER_IDS: ProviderId[] = allProviders(FULL);
+export const FILE_KINDS: FileKind[] = fileKindsFor(FULL);
 /** There is no "Auto" (removed in v0.5): the user picks one. */
 export type ProviderChoice = ProviderId;
 export type Role = "edit" | "comment" | "ignore";
@@ -57,7 +75,19 @@ export interface Settings {
   driveFolderId: string | null;
 }
 
-export const DEFAULT_SETTINGS: Settings = {
+/** The defaults for an edition. DEFAULT_SETTINGS is this build's. */
+export function defaultsFor(full: boolean): Settings {
+  return {
+    ...BASE_DEFAULTS,
+    // Full: the free option that scored best in the smoke test (39/40). Public: Chrome's built-in model,
+    // which needs no sign-in. Either way, ChatGPT takes over once signed in.
+    provider: full ? "ollama" : "chrome",
+    // gpt-oss can't see images; Gemma 4 can, and is free on Ollama's cloud.
+    visionModels: full ? { ollama: "gemma4:31b-cloud" } : {},
+  };
+}
+
+const BASE_DEFAULTS: Settings = {
   wakeWord: "Scribe",
   listenMode: "commands",
   // Suggestions first, so nothing lands in a doc unreviewed until someone switches to Auto.
@@ -67,8 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   transcriptFileId: null,
   commentsOnly: false,
   outputs: { docComments: true },
-  // The free option that scored best in the smoke test (39/40). ChatGPT takes over once signed in.
-  provider: "ollama",
+  provider: "chrome",
   models: {
     chrome: "text",
     ollama: "gpt-oss:120b-cloud",
@@ -86,10 +115,11 @@ export const DEFAULT_SETTINGS: Settings = {
   roles: {},
   defaultRole: "edit",
   screen: { autoCapture: false, targetFileId: null },
-  // gpt-oss can't see images; Gemma 4 can, and is free on Ollama's cloud.
-  visionModels: { ollama: "gemma4:31b-cloud" },
+  visionModels: {},
   driveFolderId: null,
 };
+
+export const DEFAULT_SETTINGS: Settings = defaultsFor(FULL);
 
 const KEY = "scribe.settings";
 
@@ -98,34 +128,41 @@ export async function loadSettings(): Promise<Settings> {
   return mergeSettings(raw);
 }
 
-/** Fills defaults and upgrades settings saved by v0.1 (one doc, comments-only toggle). */
-export function mergeSettings(raw: Record<string, unknown> | undefined): Settings {
+/**
+ * Fills defaults and upgrades settings saved by v0.1 (one doc, comments-only toggle). Anything this
+ * edition doesn't offer (an Obsidian note, Ollama, a key) is left out, and the model falls back to the default.
+ */
+export function mergeSettings(raw: Record<string, unknown> | undefined, full: boolean = FULL): Settings {
+  const defaults = defaultsFor(full);
+  const ids = allProviders(full) as string[];
+  const kinds = fileKindsFor(full) as string[];
   const r = (raw ?? {}) as Partial<Settings> & { docId?: string | null; docTitle?: string | null; mode?: string; autoComment?: boolean; landAs?: LandAs; creditTemplate?: string; slackWebhook?: string; shareWithClaude?: unknown };
-  const files: FileRef[] = Array.isArray(r.files) ? r.files : r.docId ? [{ id: r.docId, kind: "doc", title: r.docTitle ?? "Google Doc" }] : [];
+  const saved: FileRef[] = Array.isArray(r.files) ? r.files : r.docId ? [{ id: r.docId, kind: "doc", title: r.docTitle ?? "Google Doc" }] : [];
+  const files = saved.filter((f) => kinds.includes(f.kind));
   // v0.2 had "How changes land": suggest / direct / comment. Only "comment" survives, as commentsOnly.
   const commentsOnly = r.commentsOnly ?? (r.landAs === "comment" || r.mode === "comment");
   const listenMode: ListenMode = r.listenMode ?? (r.autoComment ? "smart" : "commands");
   // Dropped in v0.5: the editable credit line and the Slack output.
   // Dropped: the editable credit line and the Slack output (v0.5), and "Share with Claude" (removed 2026-11-01).
   const { docId: _d, docTitle: _t, mode: _m, autoComment: _a, landAs: _l, creditTemplate: _c, slackWebhook: _w, shareWithClaude: _sc, ...rest } = r;
-  const known = <T,>(o: Partial<Record<string, T>> | undefined) => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => (PROVIDER_IDS as string[]).includes(k))) as Partial<Record<ProviderId, T>>;
-  // "auto" and the removed key providers fall back to the default.
-  const provider: ProviderChoice = (PROVIDER_IDS as string[]).includes(r.provider ?? "") ? (r.provider as ProviderChoice) : DEFAULT_SETTINGS.provider;
+  const known = <T,>(o: Partial<Record<string, T>> | undefined) => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => ids.includes(k))) as Partial<Record<ProviderId, T>>;
+  // "auto", the removed key providers, and providers this edition doesn't offer fall back to the default.
+  const provider: ProviderChoice = ids.includes(r.provider ?? "") ? (r.provider as ProviderChoice) : defaults.provider;
   return {
-    ...DEFAULT_SETTINGS,
+    ...defaults,
     ...rest,
     files,
     commentsOnly,
     focusFileId: files.some((f) => f.id === r.focusFileId) ? (r.focusFileId ?? null) : null,
     listenMode,
-    outputs: { docComments: r.outputs?.docComments ?? DEFAULT_SETTINGS.outputs.docComments },
+    outputs: { docComments: r.outputs?.docComments ?? defaults.outputs.docComments },
     provider,
-    models: { ...DEFAULT_SETTINGS.models, ...known(r.models) },
+    models: { ...defaults.models, ...known(r.models) },
     chatgptAccount: r.chatgptAccount ?? null,
     keys: known(r.keys),
     roles: { ...r.roles },
-    screen: { ...DEFAULT_SETTINGS.screen, ...r.screen },
-    visionModels: { ...DEFAULT_SETTINGS.visionModels, ...known(r.visionModels) },
+    screen: { ...defaults.screen, ...r.screen },
+    visionModels: { ...defaults.visionModels, ...known(r.visionModels) },
   };
 }
 

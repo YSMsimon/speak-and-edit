@@ -1,10 +1,25 @@
 # Speak and Edit
 
-An open-source Chrome extension for Google Meet. Say an edit during the call ("Scribe, add Postgres 16 to Decisions") and it lands in your Google Doc, Sheet, Slides, Obsidian note or Overleaf project, credited to whoever said it. It reads Meet's own captions, so nothing records the audio, and the AI can be your ChatGPT plan, Ollama's free cloud models, or Chrome's built-in model.
+An open-source Chrome extension for Google Meet. Say an edit during the call ("Scribe, add Postgres 16 to Decisions") and it lands in your Google Doc, Sheet or Slides, credited to whoever said it. The full edition also edits Obsidian notes and Overleaf projects. It reads Meet's own captions, so nothing records the audio, and the AI can be your ChatGPT plan, Ollama's free cloud models, or Chrome's built-in model.
 
 "Scribe" is what you call it in the call: the wake word, which you can change. Smart mode doesn't need it at all.
 
 Status: v0.9, in development. Unit-tested, the prompts are checked against a real model, and an end-to-end smoke test runs against real Google files and an Overleaf project. Not yet used in a full live call.
+
+## Editions
+
+One codebase, two builds. The switch is `SCRIBE_FULL=1` at build time (`src/lib/edition.ts`).
+
+| | Public (the default) | Full |
+|---|---|---|
+| **Who gets it** | Chrome Web Store, GitHub Releases, `pnpm build` | `pnpm build:full`, `pnpm dev:full`, every smoke build |
+| **Files** | Google Docs, Sheets and Slides | also Obsidian notes and Overleaf projects |
+| **AI** | Sign in with ChatGPT, or Chrome's built-in model | also Ollama, OpenRouter Connect, and keys for OpenAI, Anthropic, Gemini and Groq |
+| **Permissions** | Meet, the Google APIs, ChatGPT sign-in | also localhost and ollama.com (Ollama), and optional ones asked for on first use |
+
+Nothing is deleted: the public build leaves the full edition's code out when it's built, and saved Obsidian notes, Overleaf projects, Ollama or keys are ignored in it. The unit tests run as the full edition and check the public one through `edition.test.ts`. `pnpm release` and `pnpm zip:store` always build the public edition, and the release script refuses a zip with full-edition permissions or code.
+
+The list below covers the full edition. Parts marked "full edition" aren't in the public build.
 
 ## What works
 
@@ -19,9 +34,9 @@ Status: v0.9, in development. Unit-tested, the prompts are checked against a rea
 - **Pausing:** anything said while a pause request was still being worked out is dropped too, as if it was said while paused.
 - **Typing:** Scribe is voice-first. The text box stays hidden behind a keyboard button at the bottom right, for when Meet mishears or you can't speak aloud. Sending, ✕ or Esc closes it.
 - **Version:** hover the logo to see the version and build time ("v0.9 · 18:24"), so you can tell a reload took.
-- **Obsidian** (v0.7): Outputs › Obsidian. Choose your vault folder once, then "New note" makes a meeting note in `Meetings/`, or add existing notes. Scribe adds under headings, changes text, comments as `> [!comment]` callouts, keeps credit hidden as `%% … %%`, and Record all writes the note's Transcript. Files stay on your computer; nothing to sign in to.
-- **Overleaf** (v0.8): Outputs › Overleaf lists the projects open in this Chrome; **Add** asks Chrome once for overleaf.com. Scribe edits the `.tex` file open in the project's tab, through Overleaf's own editor, so Overleaf saves it and co-authors see it live. It adds under `\section{…}` (as `\item` lines when the section ends in a list), changes text, and credits on `% [Scribe] …` lines, which are in the source and never in the PDF. **Comments are real Overleaf comments**, in the review panel with your name, made through Overleaf's own comment box on the words they're about. If that box won't open, Scribe writes the comment as a `% [Scribe]` line instead and says so on the card. What people say is made safe for LaTeX (`30%` becomes `30\%`; `& $ # _ { }` likewise), and "change 30% to 35%" finds `30\%`. If the tab is closed, Scribe opens it in the background. Screenshots go in as a `% [Scribe]` line with the Drive link. Track changes is a paid Overleaf feature, so Ask before writing holds changes in the panel. **Line numbers:** "comment on line 12" uses the PDF's margin line numbers when the paper has them (conference review templates, or `lineno`). Scribe reads that line in the project's PDF preview, in either column, finds the source line it comes from, and comments under it. "Source line 12" means the editor's line 12. If the PDF preview isn't showing that line, Scribe says so instead of guessing. The card says where each `% [Scribe]` line went ("line 24"). The `scripting` permission is only used on Overleaf tabs.
-- **Use your own API key** (v0.6): collapsed at the bottom of AI model. OpenRouter Connect, or keys for Anthropic (the only allowed way to use Claude), OpenAI, Gemini and Groq. Each service's permission is asked for only when you first use it.
+- **Obsidian** (v0.7, full edition): Outputs › Obsidian. Choose your vault folder once, then "New note" makes a meeting note in `Meetings/`, or add existing notes. Scribe adds under headings, changes text, comments as `> [!comment]` callouts, keeps credit hidden as `%% … %%`, and Record all writes the note's Transcript. Files stay on your computer; nothing to sign in to.
+- **Overleaf** (v0.8, full edition): Outputs › Overleaf lists the projects open in this Chrome; **Add** asks Chrome once for overleaf.com. Scribe edits the `.tex` file open in the project's tab, through Overleaf's own editor, so Overleaf saves it and co-authors see it live. It adds under `\section{…}` (as `\item` lines when the section ends in a list), changes text, and credits on `% [Scribe] …` lines, which are in the source and never in the PDF. **Comments are real Overleaf comments**, in the review panel with your name, made through Overleaf's own comment box on the words they're about. If that box won't open, Scribe writes the comment as a `% [Scribe]` line instead and says so on the card. What people say is made safe for LaTeX (`30%` becomes `30\%`; `& $ # _ { }` likewise), and "change 30% to 35%" finds `30\%`. If the tab is closed, Scribe opens it in the background. Screenshots go in as a `% [Scribe]` line with the Drive link. Track changes is a paid Overleaf feature, so Ask before writing holds changes in the panel. **Line numbers:** "comment on line 12" uses the PDF's margin line numbers when the paper has them (conference review templates, or `lineno`). Scribe reads that line in the project's PDF preview, in either column, finds the source line it comes from, and comments under it. "Source line 12" means the editor's line 12. If the PDF preview isn't showing that line, Scribe says so instead of guessing. The card says where each `% [Scribe]` line went ("line 24"). The `scripting` permission is only used on Overleaf tabs.
+- **Use your own API key** (v0.6, full edition): collapsed at the bottom of AI model. OpenRouter Connect, or keys for Anthropic (the only allowed way to use Claude), OpenAI, Gemini and Groq. Each service's permission is asked for only when you first use it.
 - **Names and photos:** each line shows the speaker's name and the photo Meet shows next to their captions. Your own lines use your Google account name and photo (the `userinfo.profile` permission) instead of Meet's "You". Meet often hears "Scribe" as "Subscribe", "Describe" or "Scrub". A first word that only sounds like the wake word (Double Metaphone codes) gets one short extra AI call: does the line ask Scribe to do one of its jobs, or is it ordinary talk ("describe the flow for me")? Only a yes runs, in the speaker's own words. The wake word itself never needs the extra call.
   - **Record all:** no model. Every line goes into a "Transcript" section at the end of a chosen Doc, written in batches.
 - **Approval** (picker next to it): **Auto** writes straight into the file. **Ask before writing** puts Docs edits in as suggestions to accept or reject (in the panel or the Doc); anything that can't be a suggestion (Sheets, Slides, transcript lines, screenshots) waits in the panel for Approve. "Approve all" clears the queue. Comments go straight in either way. New installs start on Ask before writing.
@@ -56,23 +71,24 @@ Planned: Zoom and Teams web, Claude through MCP, Notion, GitHub, Word, PDF.
 
 ## Install
 
-Download `speak-and-edit-<version>-chrome.zip` from [Releases](https://github.com/YSMsimon/speak-and-edit/releases) and unzip it. In Chrome, open `chrome://extensions`, turn on Developer mode, click Load unpacked and pick the unzipped folder. 0.x versions are pre-releases; a Chrome Web Store listing comes later. Until Google reviews the app, Google Docs, Sheets and Slides sign-in only works for accounts added as testers.
+Download `speak-and-edit-<version>-chrome.zip` from [Releases](https://github.com/YSMsimon/speak-and-edit/releases) and unzip it. It's the public edition; for Obsidian, Overleaf and Ollama, build the full edition below. In Chrome, open `chrome://extensions`, turn on Developer mode, click Load unpacked and pick the unzipped folder. 0.x versions are pre-releases; a Chrome Web Store listing comes later. Until Google reviews the app, Google Docs, Sheets and Slides sign-in only works for accounts added as testers.
 
 ## Build and load
 
 ```sh
 pnpm install
 cp .env.example .env      # add your Google client ID, see below
-pnpm build                # output in .output/chrome-mv3
+pnpm build                # the public edition, in .output/chrome-mv3
+pnpm build:full           # the full edition: also Obsidian, Overleaf, Ollama and API keys
 pnpm test                 # unit tests
 SCRIBE_LIVE=1 pnpm test   # also runs 4 requests against a real model (Ollama cloud, nothing downloaded)
 ```
 
 In Chrome: `chrome://extensions` → Developer mode → Load unpacked → pick `.output/chrome-mv3`. Click the toolbar icon to open the side panel. Note the extension's ID on that page: Google sign-in is tied to it. To keep the same ID on every computer, put a public key in `.keys/public-key.b64` (git-ignored) and the build adds it to the manifest.
 
-`pnpm dev` starts a live-reloading build in a separate Chrome profile.
+`pnpm dev` (or `pnpm dev:full`) starts a live-reloading build in a separate Chrome profile.
 
-To publish a release: `pnpm release 0.9.1`. It tests, builds and scans the zip, then tags and uploads it to GitHub Releases after you answer y. Add `--dry-run` to stop before anything is committed or pushed.
+To publish a release: `pnpm release 0.9.1`. It tests, builds the public edition and scans the zip, then tags and uploads it to GitHub Releases after you answer y. Add `--dry-run` to stop before anything is committed or pushed.
 
 ## Google sign-in (one-time)
 
@@ -84,7 +100,7 @@ To publish a release: `pnpm release 0.9.1`. It tests, builds and scans the zip, 
 
 Scribe asks for the full `documents`, `spreadsheets` and `presentations` scopes so you can use any file. That scope needs Google's app verification before the public can use it. The plan before a public release is to switch to `drive.file` plus Google Picker, which needs no verification.
 
-## Ollama
+## Ollama (full edition)
 
 The default Ollama model is `gpt-oss:120b-cloud`, one of Ollama's free cloud models (also `gemma4:31b-cloud` and `gpt-oss:20b-cloud`). In a live check on 2026-11-01, 120b and gemma4 handled all four test requests; 20b sometimes guessed instead of asking when a request was ambiguous. They run on Ollama's servers through the signed-in Ollama app, so nothing is downloaded. Scribe never pulls models.
 
